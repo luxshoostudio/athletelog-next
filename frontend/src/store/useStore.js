@@ -3,7 +3,7 @@ import { api, setRemoteAuth } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { registerCustom, healCustomEx } from '../lib/exercises.js'
-import { DEMO, DEMO_SEEDED, LOCAL_ONLY } from '../lib/demo.js'
+import { DEMO, LOCAL_ONLY } from '../lib/demo.js'
 import { rememberDefaultLang } from '../lib/default-lang.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, onAppActive, readJsonFile, syncReminder, writeAutoBackup, writeJsonFile } from '../lib/mobile.js'
@@ -1894,10 +1894,8 @@ export const useStore = create((set, get) => {
       }
       // Demo build (GitHub Pages): no backend at all — seed once, stay in guest mode.
       if (DEMO) {
-        if (!localStorage.getItem(DEMO_SEEDED)) {
-          localStorage.setItem(DEMO_SEEDED, '1')
-          await get().resetDemo()
-        }
+        // This fork uses the static Pages build as Lux's real local-only PWA, not as an
+        // example-data demo. Existing browser data is kept and a fresh install starts empty.
         get().setGuest(true)
         finishBoot()
         return
