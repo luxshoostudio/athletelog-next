@@ -39,3 +39,18 @@ export function fromSpeed(value, unit) {
 
 /** "8 km/h" or "5 mph" — a stored km/h speed, shown in `unit`. */
 export const fmtSpeed = (kmh, unit) => `${fmtNum(toSpeed(Number(kmh) || 0, unit))} ${speedLabel(unit)}`
+
+/** Running helpers. The stored source of truth remains km/h; distance and pace are views. */
+export const milesFor = (minutes, kmh) => Math.max(0, (Number(minutes) || 0) / 60 * (Number(kmh) || 0) / KMH_PER_MPH)
+export const paceFor = kmh => {
+  const mph = (Number(kmh) || 0) / KMH_PER_MPH
+  return mph > 0 ? 60 / mph : 0
+}
+export const speedForPace = pace => {
+  const value = Number(pace) || 0
+  return value > 0 ? 60 / value * KMH_PER_MPH : 0
+}
+export const speedForMiles = (miles, minutes) => {
+  const hours = (Number(minutes) || 0) / 60
+  return hours > 0 ? (Number(miles) || 0) / hours * KMH_PER_MPH : 0
+}

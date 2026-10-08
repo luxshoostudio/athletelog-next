@@ -14,6 +14,7 @@ import { useConnectionTrouble } from '../components/SyncBanner.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
+import { foodDay, frequentFoods, totalsForDay } from '../lib/food.js'
 
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
@@ -38,6 +39,9 @@ export default function Home() {
   const bw = lastBW(S)
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
+  const foodTotals = totalsForDay(S.foodEntries, foodDay())
+  const nutritionTargets = { calories: 1300, protein: 140, fiber: 30, ...(S.nutritionTargets || {}) }
+  const quickFoods = frequentFoods(S, 4)
 
   const ws = weekStartOf(S)
   // The first day of the shown week. Named for the role, not for Monday — which day that is
@@ -100,7 +104,7 @@ export default function Home() {
 
   return <div className="narrow">
     <div className="hdr">
-      <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+      <div><h1>{user ? t('Hi {0}', user.name) : 'AthleteLog Next'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label={trouble ? t('Settings') + ', ' + t('Connection problem') : t('Settings')}><Icon name="gear" />{trouble && <span className="tab-dot" aria-hidden="true" />}</button>
     </div>
 
@@ -154,6 +158,19 @@ export default function Home() {
           {t('Choose a different workout')}
         </Button>
       </div>}
+    </div>
+
+    <div className="card home-food-card">
+      <div className="row between">
+        <div><div className="lbl2">Nutrition</div><h2 style={{ margin: '2px 0 0' }}>Food</h2></div>
+        <Button size="sm" variant="primary" icon="plus" onClick={() => nav('/food')}>Add food</Button>
+      </div>
+      <button className="home-food-totals" onClick={() => nav('/food')}>
+        <span><b>{Math.round(foodTotals.calories)}</b><small>/ {nutritionTargets.calories} kcal</small><i>Calories</i></span>
+        <span><b>{Math.round(foodTotals.protein)}</b><small>/ {nutritionTargets.protein} g</small><i>Protein</i></span>
+        <span><b>{Math.round(foodTotals.fiber)}</b><small>/ {nutritionTargets.fiber} g</small><i>Fiber</i></span>
+      </button>
+      <div className="food-chips home-food-chips">{quickFoods.map(item => <button key={item.name} onClick={() => nav('/food')}>{item.name}</button>)}</div>
     </div>
 
     {/* Jump to the gym check-in cards (QR membership codes). Shown here as a quick tap on

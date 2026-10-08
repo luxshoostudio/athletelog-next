@@ -1,7 +1,7 @@
 // Cardio speed in km/h or mph (Discord "miles per hour"): stored in km/h, shown and typed in
 // the profile's unit, and exact both ways for what a person types.
 import { afterEach, describe, it, expect } from 'vitest'
-import { KMH_PER_MPH, speedUnitOf, speedLabel, toSpeed, fromSpeed, fmtSpeed } from './speed.js'
+import { KMH_PER_MPH, speedUnitOf, speedLabel, toSpeed, fromSpeed, fmtSpeed, milesFor, paceFor, speedForPace, speedForMiles } from './speed.js'
 import { setLabel, exLine } from './history.js'
 import { planPrintHTML } from './plan-share.js'
 import { setWeightDecimals } from './format.js'
@@ -68,6 +68,15 @@ describe('toSpeed / fromSpeed', () => {
       expect(toSpeed(v, 'mph')).toBe(v)
       expect(fromSpeed(v, 'mph')).toBe(v)
     }
+  })
+})
+
+describe('running distance and pace', () => {
+  it('keeps mile, duration and pace mathematically consistent', () => {
+    const speed = speedForPace(10)
+    expect(paceFor(speed)).toBeCloseTo(10, 8)
+    expect(milesFor(30, speed)).toBeCloseTo(3, 8)
+    expect(speedForMiles(3, 30)).toBeCloseTo(speed, 8)
   })
 })
 

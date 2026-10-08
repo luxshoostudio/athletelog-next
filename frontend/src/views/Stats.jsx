@@ -24,6 +24,7 @@ import {
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { isWarmupRow } from '../lib/workout-model.js'
+import { foodDay, totalsForDay } from '../lib/food.js'
 
 // Which muscles the training in a window actually hit — and, the point of the card,
 // which ones it keeps missing. Shading is relative within the window (lib/muscles.js).
@@ -396,6 +397,14 @@ export default function Stats() {
   const bwDelta30 = bw30.length > 1 ? bw30[bw30.length - 1].w - bw30[0].w : null
   const workouts = S.workouts
   const monthW = workouts.filter(w => workoutDay(w)?.slice(0, 7) === todayISO().slice(0, 7)).length
+  const nutritionTargets = { calories: 1300, protein: 140, fiber: 30, ...(S.nutritionTargets || {}) }
+  const nutritionWeek = Array.from({ length: 7 }, (_, offset) => {
+    const date = new Date(); date.setDate(date.getDate() - (6 - offset))
+    const day = foodDay(date)
+    return { day, ...totalsForDay(S.foodEntries, day) }
+  })
+  const foodDays = nutritionWeek.filter(x => x.calories > 0 || x.protein > 0 || x.fiber > 0)
+  const foodAverage = key => foodDays.length ? foodDays.reduce((sum, day) => sum + day[key], 0) / foodDays.length : 0
 
   const metricDataOf = (workout, id) => {
     const entries = metricEntriesForExercise(workout, id)
@@ -562,6 +571,16 @@ export default function Stats() {
       <div className="tile"><div className="l"><Icon name="flame" />{t('Week streak')}</div><div className="v">{streakWeeks(S)}</div></div>
       <div className="tile"><div className="l"><Icon name="scale" />{t('Weight 30d')}</div><div className="v" style={{ fontSize: 22, color: bwDelta30 === null ? 'inherit' : bwDeltaColor(bwDelta30, (lastBW(S) || {}).w || 0) }}>{bwDelta30 === null ? '–' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}</div></div>
 
+    </div>
+
+    <div className="card food-stats-card">
+      <div className="row between"><div><div className="lbl2">Nutrition · 7 days</div><h2 style={{ margin: '2px 0 0' }}>Food trend</h2></div><Button size="sm" variant="tinted" onClick={() => nav('/food')}>Open Food</Button></div>
+      <div className="food-stats-bars">{nutritionWeek.map(day => <div key={day.day} title={`${day.day}: ${Math.round(day.protein)}g protein`}><i style={{ height: `${Math.min(100, day.protein / nutritionTargets.protein * 100)}%` }} /><span>{day.day.slice(8)}</span></div>)}</div>
+      <div className="home-food-totals">
+        <span><b>{Math.round(foodAverage('calories'))}</b><small>kcal/day</small><i>Average</i></span>
+        <span><b>{Math.round(foodAverage('protein'))}</b><small>g/day</small><i>Protein</i></span>
+        <span><b>{Math.round(foodAverage('fiber'))}</b><small>g/day</small><i>Fiber</i></span>
+      </div>
     </div>
 
     <div className="card">

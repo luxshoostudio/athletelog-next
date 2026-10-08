@@ -3,7 +3,7 @@ import { api, setRemoteAuth } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { registerCustom, healCustomEx } from '../lib/exercises.js'
-import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
+import { DEMO, DEMO_SEEDED, LOCAL_ONLY } from '../lib/demo.js'
 import { rememberDefaultLang } from '../lib/default-lang.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, onAppActive, readJsonFile, syncReminder, writeAutoBackup, writeJsonFile } from '../lib/mobile.js'
@@ -96,6 +96,10 @@ export const DEF = {
   // Settings/Plan through to the first routine being added — there's no queue yet to derive it from.
   scheduleMode: null,
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+  // AthleteLog Next nutrition data. Entries and personal foods travel with the same local
+  // backup as workouts; usage is derived from entries so it can never drift out of sync.
+  foodEntries: [], foodItems: {}, mealPresets: [], favoriteFoods: [], foodUsage: {},
+  nutritionTargets: { calories: 1300, protein: 140, fiber: 30 }, importBatches: [],
   // Stats activity heatmap metric. Profiles without this key continue to open on time.
   heatmapMetric: 'time',
   // How the active workout is laid out — 'cards' (one exercise at a time with Prev/Next),
@@ -209,6 +213,16 @@ export const DEF = {
   balanceTemplate: DEFAULT_TEMPLATE_ID, balanceOverrides: {},
 }
 const clone = o => JSON.parse(JSON.stringify(o))
+const LUX_EXERCISES = [
+  { id: 'lux-running', n: 'running', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio' },
+  { id: 'lux-walking', n: 'walking', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio' },
+  { id: 'lux-hiking', n: 'hiking', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio' },
+  { id: 'lux-stretching', n: 'stretching', custom: true, bp: 'waist', eq: 'body weight', athleteLogMode: 'time' },
+  { id: 'lux-balancing', n: 'balancing', custom: true, bp: 'waist', eq: 'body weight', athleteLogMode: 'time' },
+  { id: 'lux-static-hold', n: 'static hold', custom: true, bp: 'waist', eq: 'body weight', athleteLogMode: 'time' },
+  { id: 'lux-resting', n: 'resting', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'time' },
+  { id: 'lux-calisthenics', n: 'calisthenics', custom: true, bp: 'upper arms', eq: 'body weight', athleteLogMode: 'reps' },
+]
 
 // First run on a device whose language renders right-to-left starts in that language
 // rather than English; the boot script in index.html mirrors this check for the
@@ -234,6 +248,7 @@ export function freshState() {
   // Exercise animations: Small (v1.3.11), a thumbnail beside the exercise name that a tap opens,
   // so the first set is on screen without scrolling. DEF stays 'full' for a profile saved before.
   s.gifSize = 'mini'
+  s.customEx = clone(LUX_EXERCISES)
   return s
 }
 
@@ -263,7 +278,7 @@ function loadState() {
 // weigh-ins and custom exercises. A custom exercise is all a new guest may have made — with its
 // photo or video, which the server counts as unreferenced until the state that names it lands —
 // so a profile created from such a copy takes it at once, like one holding a workout.
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.customEx || []).length)
+const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.customEx || []).length || (st.foodEntries || []).length || Object.keys(st.foodItems || {}).length)
 
 // Decide whether a pulled account state may replace the local saved state. A local active workout
 // is deliberately carried forward: the server stores completed/saved state, while the in-progress
@@ -1883,6 +1898,12 @@ export const useStore = create((set, get) => {
           localStorage.setItem(DEMO_SEEDED, '1')
           await get().resetDemo()
         }
+        get().setGuest(true)
+        finishBoot()
+        return
+      }
+      // AthleteLog Next's static PWA: local profile, no example seed and no server request.
+      if (LOCAL_ONLY) {
         get().setGuest(true)
         finishBoot()
         return

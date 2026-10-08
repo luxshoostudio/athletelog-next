@@ -179,3 +179,8 @@ by the Capawesome Team (Robin Genz), a Capacitor wrapper around Google's ML Kit,
 **Apache License 2.0**. openGym pins the `7.x` line to stay on Capacitor 7. The full license text is
 available at <https://www.apache.org/licenses/LICENSE-2.0> and in the package's own `LICENSE` file.
 The decoded string is what openGym keeps; the photo itself is never stored.
+# AthleteLog Next
+
+AthleteLog Next is a customized fork of openGym by Duarte Santos.
+The original copyright and AGPL-3.0-or-later license remain in effect.
+Personal workout and nutrition data is not part of this source repository.

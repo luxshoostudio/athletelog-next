@@ -1,0 +1,153 @@
+import { useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useStore } from '../store/useStore.js'
+import Icon from '../components/Icon.jsx'
+import { Button } from '../components/ui.jsx'
+import {
+  breakfastEntry, foodCatalogue, foodDay, foodSearch, foodTime, frequentFoods,
+  learnedBreakfast, lookupBarcode, makeFoodEntry, normalizedFood, totalsForDay,
+} from '../lib/food.js'
+import { athleteLogImport, mergeAthleteLogImport } from '../lib/import-athletelog.js'
+
+const round = value => Math.round((Number(value) || 0) * 10) / 10
+const newDraft = (date = foodDay()) => ({ name: '', amount: 1, unit: 'serving', protein: '', calories: '', fiber: '', fat: '', carbs: '', date, time: foodTime() })
+
+function Macro({ label, value, target, unit }) {
+  const pct = Math.min(100, target > 0 ? value / target * 100 : 0)
+  return <div className="food-macro">
+    <div className="row between"><span className="lbl2">{label}</span><span><b>{round(value)}</b> <span className="dim">/ {target} {unit}</span></span></div>
+    <div className="food-progress"><i style={{ width: `${pct}%` }} /></div>
+  </div>
+}
+
+function EntryEditor({ entry, onSave, onClose }) {
+  const [draft, setDraft] = useState({ ...entry })
+  const field = key => ({ value: draft[key] ?? '', onChange: e => setDraft(x => ({ ...x, [key]: e.target.value })) })
+  return <div className="card food-editor">
+    <div className="row between"><h2>{entry.id ? 'Edit food' : 'Add food'}</h2><button className="iconbtn" onClick={onClose}><Icon name="xmark" /></button></div>
+    <label>Name<input {...field('name')} autoFocus /></label>
+    <div className="food-form-grid">
+      <label>Amount<input type="number" inputMode="decimal" {...field('amount')} /></label>
+      <label>Unit<input {...field('unit')} /></label>
+      <label>Calories<input type="number" inputMode="decimal" {...field('calories')} /></label>
+      <label>Protein (g)<input type="number" inputMode="decimal" {...field('protein')} /></label>
+      <label>Fiber (g)<input type="number" inputMode="decimal" {...field('fiber')} /></label>
+      <label>Carbs (g)<input type="number" inputMode="decimal" {...field('carbs')} /></label>
+      <label>Date<input type="date" {...field('date')} /></label>
+      <label>Time<input type="time" {...field('time')} /></label>
+    </div>
+    <Button variant="primary" onClick={() => draft.name.trim() && onSave({ ...draft, calories: +draft.calories || 0, protein: +draft.protein || 0, fiber: +draft.fiber || 0, fat: +draft.fat || 0, carbs: +draft.carbs || 0, amount: +draft.amount || 1 })}>Save</Button>
+  </div>
+}
+
+export default function Food() {
+  const nav = useNavigate()
+  const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
+  const [day, setDay] = useState(foodDay())
+  const [query, setQuery] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [scan, setScan] = useState(false)
+  const [barcode, setBarcode] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef(null)
+  const importRef = useRef(null)
+  const targets = { calories: 1300, protein: 140, fiber: 30, ...(S.nutritionTargets || {}) }
+  const totals = totalsForDay(S.foodEntries, day)
+  const entries = (S.foodEntries || []).filter(x => x.date === day).sort((a, b) => String(b.time).localeCompare(String(a.time)))
+  const results = useMemo(() => query.trim() ? foodSearch(S, query) : [], [S, query])
+  const frequent = frequentFoods(S, 8)
+  const breakfast = learnedBreakfast(S)
+
+  const commit = draft => {
+    update(state => {
+      state.foodEntries ||= []
+      if (draft.id) state.foodEntries = state.foodEntries.map(x => x.id === draft.id ? { ...x, ...draft } : x)
+      else state.foodEntries.push(makeFoodEntry(draft, { amount: draft.amount, date: draft.date, time: draft.time, source: draft.source }))
+      state.foodItems ||= {}
+      state.foodItems[draft.name.toLocaleLowerCase()] = normalizedFood(draft)
+    })
+    setEditing(null); setQuery('')
+  }
+  const quickAdd = item => setEditing({ ...item, amount: item.qty || 1, date: day, time: foodTime() })
+  const remove = id => update(state => { state.foodEntries = (state.foodEntries || []).filter(x => x.id !== id) })
+  const toggleFav = name => update(state => {
+    const key = name.toLocaleLowerCase(); state.favoriteFoods ||= []
+    state.favoriteFoods = state.favoriteFoods.includes(key) ? state.favoriteFoods.filter(x => x !== key) : [...state.favoriteFoods, key]
+  })
+  const addBreakfast = () => {
+    const entry = breakfastEntry(S, { date: day, time: foodTime() })
+    if (!entry) { setMessage('Add breakfast on at least three mornings so AthleteLog can learn the bundle.'); return }
+    update(state => { state.foodEntries ||= []; state.foodEntries.push(entry) })
+  }
+  const lookup = async () => {
+    setBusy(true); setMessage('')
+    try {
+      const item = await lookupBarcode(barcode)
+      if (item) { setEditing({ ...item, amount: item.qty, date: day, time: foodTime() }); setScan(false) }
+      else { setEditing({ ...newDraft(day), name: `Barcode ${barcode}`, barcode, source: 'manual-barcode' }); setScan(false); setMessage('No product found. Add the label values once and it will stay in your food bank.') }
+    } catch (e) { setMessage(e.message || 'Could not scan this product.') }
+    finally { setBusy(false) }
+  }
+  const importAthleteLog = async event => {
+    const file = event.target.files?.[0]; event.target.value = ''
+    if (!file) return
+    try {
+      const parsed = JSON.parse(await file.text())
+      const imported = athleteLogImport(parsed, S)
+      if (imported.duplicate) { setMessage('This AthleteLog backup was already imported.'); return }
+      update(state => mergeAthleteLogImport(state, imported))
+      setMessage(`Imported ${imported.workouts.length} workouts and ${imported.foodEntries.length} food entries.`)
+    } catch (e) { setMessage(e.message || 'This file could not be imported.') }
+  }
+
+  return <div className="narrow food-page">
+    <div className="hdr"><div><h1>Food</h1><div className="sub">Local nutrition log</div></div><div className="row" style={{ gap: 7 }}><button className="iconbtn" onClick={() => importRef.current?.click()} aria-label="Import AthleteLog"><Icon name="download" /></button><button className="iconbtn" onClick={() => nav('/home')}><Icon name="house" /></button></div></div>
+    <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={importAthleteLog} />
+    <div className="card food-summary">
+      <input className="food-date" type="date" value={day} onChange={e => setDay(e.target.value)} />
+      <Macro label="Calories" value={totals.calories} target={targets.calories} unit="kcal" />
+      <Macro label="Protein" value={totals.protein} target={targets.protein} unit="g" />
+      <Macro label="Fiber" value={totals.fiber} target={targets.fiber} unit="g" />
+    </div>
+
+    <div className="card">
+      <div className="food-search-row">
+        <Icon name="magnifier" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search or add food" />
+        <button className="iconbtn" onClick={() => setEditing(newDraft(day))} aria-label="Add custom food"><Icon name="plus" /></button>
+        <button className="iconbtn" onClick={() => setScan(x => !x)} aria-label="Scan barcode"><Icon name="qr" /></button>
+      </div>
+      {scan && <div className="food-scan">
+        <input inputMode="numeric" value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Enter barcode number" />
+        <Button size="sm" variant="primary" onClick={lookup} disabled={busy}>{busy ? 'Looking up…' : 'Look up'}</Button>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden />
+      </div>}
+      {!!query && <div className="food-results">{results.map(item => <button key={item.name} onClick={() => quickAdd(item)}><span>{item.name}</span><span className="dim">{round(item.protein)}g P · {round(item.calories)} kcal</span></button>)}</div>}
+      {!!query && !results.length && <button className="food-empty-add" onClick={() => setEditing({ ...newDraft(day), name: query })}>Create “{query}”</button>}
+      {message && <p className="small" style={{ color: 'var(--orange)' }}>{message}</p>}
+    </div>
+
+    {editing && <EntryEditor entry={editing} onSave={commit} onClose={() => setEditing(null)} />}
+
+    <div className="card">
+      <div className="row between"><h2>Quick add</h2>{breakfast.length >= 2 && <Button size="sm" variant="tinted" onClick={addBreakfast}>Usual Breakfast</Button>}</div>
+      <div className="food-chips">{frequent.map(item => <button key={item.name} onClick={() => quickAdd(item)}>{item.name}</button>)}</div>
+      {breakfast.length >= 2 && <div className="small dim food-breakfast-list">Breakfast: {breakfast.map(x => x.name).join(' · ')}</div>}
+      {!frequent.length && <div className="muted small">Foods you log become quick options here.</div>}
+    </div>
+
+    <h2 className="sec">{day === foodDay() ? 'Today' : day}</h2>
+    <div className="food-log">{entries.map(entry => {
+      const fav = (S.favoriteFoods || []).includes(entry.name.toLocaleLowerCase())
+      return <div className="card food-entry" key={entry.id}>
+        <button className="food-entry-main" onClick={() => setEditing(entry)}>
+          <span className="dim food-time">{entry.time}</span><b>{entry.name}</b>
+          <span className="dim">{round(entry.protein)}g P · {round(entry.calories)} kcal</span>
+        </button>
+        <button className="iconbtn" onClick={() => toggleFav(entry.name)} aria-label="Favourite"><Icon name={fav ? 'starFill' : 'star'} /></button>
+        <button className="iconbtn" onClick={() => remove(entry.id)} aria-label="Delete"><Icon name="xmark" /></button>
+      </div>
+    })}{!entries.length && <div className="empty">No food logged for this day.</div>}</div>
+  </div>
+}

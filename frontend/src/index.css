@@ -16,6 +16,43 @@
       140–220ms on an ease-out curve. Nothing bounces or slides for decoration.
    ========================================================================== */
 
+/* AthleteLog Next · food */
+.home-food-card { min-height:210px; display:grid; gap:16px; align-content:start; }
+.home-food-totals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; width:100%; padding:0; background:none; border:0; color:inherit; text-align:start; }
+.home-food-totals span { min-width:0; padding:13px 10px; border-radius:14px; background:var(--surface-2); display:grid; gap:2px; }
+.home-food-totals b { font-size:1.45rem; line-height:1.1; }
+.home-food-totals small { font-size:.72rem; color:var(--label-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.home-food-totals i { font-size:.68rem; font-style:normal; text-transform:uppercase; letter-spacing:.08em; color:var(--label-2); }
+.food-page { padding-bottom:112px; }
+.food-summary { display:grid; gap:15px; }
+.food-date { justify-self:start; width:auto; font:inherit; font-weight:600; }
+.food-macro { display:grid; gap:7px; }
+.food-progress { height:7px; border-radius:999px; overflow:hidden; background:var(--surface-3); }
+.food-progress i { display:block; height:100%; border-radius:inherit; background:var(--acc); }
+.food-search-row { display:grid; grid-template-columns:auto minmax(0,1fr) 38px 38px; gap:8px; align-items:center; }
+.food-search-row > svg { color:var(--label-3); }
+.food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
+.food-scan { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:12px; }
+.food-results { display:grid; margin-top:10px; border-top:1px solid var(--line); }
+.food-results button,.food-empty-add { padding:12px 2px; border:0; border-bottom:1px solid var(--line); background:none; color:inherit; display:flex; justify-content:space-between; gap:12px; text-align:start; font:inherit; }
+.food-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0 16px; }
+.food-editor label { min-width:0; display:grid; gap:5px; color:var(--label-2); font-size:.78rem; }
+.food-chips { display:flex; gap:7px; overflow-x:auto; padding:4px 0; scrollbar-width:none; }
+.food-chips button { flex:0 0 auto; border:1px solid var(--line); background:var(--surface-2); color:var(--label); border-radius:999px; padding:8px 12px; font:inherit; font-size:.82rem; }
+.food-breakfast-list { margin-top:10px; line-height:1.5; }
+.food-log { display:grid; gap:9px; }
+.food-entry { display:grid; grid-template-columns:minmax(0,1fr) 38px 38px; align-items:center; gap:4px; padding:10px 12px; }
+.food-entry-main { min-width:0; display:grid; grid-template-columns:44px minmax(0,1fr) auto; align-items:center; gap:9px; background:none; border:0; color:inherit; text-align:start; font:inherit; padding:3px 0; }
+.food-entry-main b { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.food-entry-main > span:last-child { white-space:nowrap; font-size:.76rem; }
+.food-time { font-size:.75rem; }
+.food-stats-card { display:grid; gap:16px; }
+.food-stats-bars { height:110px; display:grid; grid-template-columns:repeat(7,1fr); gap:8px; align-items:end; }
+.food-stats-bars>div { height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; }
+.food-stats-bars i { width:min(22px,70%); min-height:2px; border-radius:7px; background:var(--acc); }
+.food-stats-bars span { font-size:.68rem; color:var(--label-3); }
+@media(max-width:430px){.home-food-totals b{font-size:1.2rem}.food-entry-main{grid-template-columns:40px minmax(0,1fr)}.food-entry-main>span:last-child{grid-column:2;white-space:normal}}
+
 /* ---------------------------------------------------------------- tokens -- */
 :root {
   /* surfaces — dark is the default */
