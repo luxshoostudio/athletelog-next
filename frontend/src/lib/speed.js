@@ -54,3 +54,14 @@ export const speedForMiles = (miles, minutes) => {
   const hours = (Number(minutes) || 0) / 60
   return hours > 0 ? (Number(miles) || 0) / hours * KMH_PER_MPH : 0
 }
+
+// Pace, duration and miles are one fact. Editing any of them rewrites the one that follows
+// from the other two, so a stored distanceMi cannot go stale after a later pace or time edit.
+export function reconcileRunningSet(row = {}, field, value) {
+  const next = { ...row }
+  if (value == null) delete next[field]
+  else next[field] = value
+  if (field === 'distanceMi') next.speed = speedForMiles(next.distanceMi, next.min)
+  else if (field === 'min' || field === 'speed') next.distanceMi = +milesFor(next.min, next.speed).toFixed(3)
+  return next
+}

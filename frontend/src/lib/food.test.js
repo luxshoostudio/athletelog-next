@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { breakfastEntry, foodSearch, frequentFoods, learnedBreakfast, lookupBarcode, makeFoodEntry, totalsForDay } from './food.js'
+import { breakfastEntry, entryFromDraft, foodSearch, frequentFoods, learnedBreakfast, lookupBarcode, macrosForAmount, makeFoodEntry, perUnitFood, scaledFood, totalsForDay } from './food.js'
 
 describe('food log', () => {
   it('searches fuzzily and resolves aliases', () => {
@@ -25,7 +25,7 @@ describe('food log', () => {
     expect(frequentFoods(S, 2).map(x => x.name)).toEqual(['Scanned yogurt', 'Manual soup'])
   })
 
-  it('learns breakfast and always includes chia seeds', () => {
+  it('learns breakfast only from foods she actually logged', () => {
     const entries = []
     for (let i = 0; i < 5; i++) {
       const date = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
@@ -33,10 +33,34 @@ describe('food log', () => {
       entries.push({ name: 'blueberries', date, time: '09:00', protein: 1, calories: 57 })
     }
     const S = { foodEntries: entries }
-    expect(learnedBreakfast(S).map(x => x.name)).toEqual(expect.arrayContaining(['greek yogurt', 'blueberries', 'chia seeds']))
+    expect(learnedBreakfast(S).map(x => x.name).sort()).toEqual(['blueberries', 'greek yogurt'])
     const meal = breakfastEntry(S, { date: '2026-10-08', time: '09:30' })
-    expect(meal.components.length).toBeGreaterThanOrEqual(3)
+    expect(meal.components.map(x => x.name).sort()).toEqual(['blueberries', 'greek yogurt'])
+    expect(meal.protein).toBe(11)
+    expect(meal.calories).toBe(116)
     expect(meal.date).toBe('2026-10-08')
+    const withChia = { foodEntries: entries.map(x => ({ ...x })) }
+    for (let i = 0; i < 5; i++) {
+      const date = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
+      withChia.foodEntries.push({ name: 'chia seeds', date, time: '09:00', protein: 3, calories: 90, amount: 20, qty: 100 })
+    }
+    expect(learnedBreakfast(withChia).map(x => x.name)).toContain('chia seeds')
+  })
+
+  it('keeps typed totals for the amount and rescales when the amount changes', () => {
+    const eggs = entryFromDraft({ name: 'egg', amount: 2, qty: 1, unit: 'egg', protein: 12, calories: 140 })
+    expect(eggs).toMatchObject({ protein: 12, calories: 140, amount: 2 })
+    expect(perUnitFood(eggs)).toMatchObject({ protein: 6, calories: 70, qty: 1 })
+    expect(macrosForAmount(2, { protein: 12, calories: 140 }, 4)).toMatchObject({ protein: 24, calories: 280 })
+    const chicken = { name: 'chicken breast', protein: 62, calories: 330, fat: 7.2, carbs: 0, fiber: 0, qty: 100, unit: 'g', amount: 200 }
+    const per = perUnitFood(chicken)
+    expect(per.protein).toBeCloseTo(31, 5)
+    expect(per.calories).toBeCloseTo(165, 5)
+    const again = scaledFood({ ...per, lastAmount: 200 }, 200)
+    expect(again).toMatchObject({ amount: 200 })
+    expect(again.protein).toBeCloseTo(62, 5)
+    expect(again.calories).toBeCloseTo(330, 5)
+    expect(makeFoodEntry({ name: 'chicken breast', protein: 31, calories: 165, qty: 100, unit: 'g' }, { amount: 200 }).protein).toBeCloseTo(62, 5)
   })
 
   it('maps an Open Food Facts product and returns null for misses', async () => {

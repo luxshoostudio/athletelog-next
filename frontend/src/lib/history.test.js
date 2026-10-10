@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { nextTrainingDay, modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, freestyleConfig, exLine, workoutVolume, bestWeightFor, bestWeightForEntry, completedRepsOf, metricRowsForEntry, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, cascadeWeight, insertWarmupRow, makeWarmupAt, canBeWarmup, makeWorkAt, removeRowAt, removeLastSet, setSpanAt, workSetsDone, setsDone, setsDoneActive, setUnits, doneUnits, setUnitsTotal, pairAdjacent, unpairSuperset, supersetUnits, sessionSections, applyIntensifierPlan, pinnedNoteFor, exNoteFor, effectiveRoutineIds, effectiveRoutines, effectiveRoutineId, effectiveRoutine, lastEntryFor, entryExcluded, entryRoutineId, setsRepsOf } from './history.js'
+import { nextTrainingDay, modeOf, usesRunningPace, isTimed, fmtSec, setLabel, defaultConfig, buildSets, freestyleConfig, exLine, workoutVolume, bestWeightFor, bestWeightForEntry, completedRepsOf, metricRowsForEntry, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, cascadeWeight, insertWarmupRow, makeWarmupAt, canBeWarmup, makeWorkAt, removeRowAt, removeLastSet, setSpanAt, workSetsDone, setsDone, setsDoneActive, setUnits, doneUnits, setUnitsTotal, pairAdjacent, unpairSuperset, supersetUnits, sessionSections, applyIntensifierPlan, pinnedNoteFor, exNoteFor, effectiveRoutineIds, effectiveRoutines, effectiveRoutineId, effectiveRoutine, lastEntryFor, entryExcluded, entryRoutineId, setsRepsOf } from './history.js'
 import { makeSideSet, setSideField, toggleSide, WEIGHT_ORIGIN_MANUAL } from './workout-model.js'
-import { EXDB } from './exercises.js'
+import { EXDB, registerCustom } from './exercises.js'
 import { todayISO, isoOf } from './format.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -35,6 +35,16 @@ describe('modeOf', () => {
   it('exposes the timed check', () => {
     expect(isTimed({ id: LIFT, mode: 'time' })).toBe(true)
     expect(isTimed({ id: LIFT })).toBe(false)
+  })
+
+  it('treats the running preset as cardio logged by pace, and leaves walking on speed', () => {
+    expect(usesRunningPace('lux-running')).toBe(true)
+    expect(usesRunningPace('lux-walking')).toBe(false)
+    expect(modeOf({ id: 'lux-running' })).toBe('cardio')
+    expect(modeOf({ id: 'lux-walking' })).toBe('cardio')
+    registerCustom([{ id: 'lux-running', n: 'running', custom: true, athleteLogMode: 'cardio' }])
+    expect(usesRunningPace('lux-running')).toBe(true)
+    registerCustom([])
   })
 })
 

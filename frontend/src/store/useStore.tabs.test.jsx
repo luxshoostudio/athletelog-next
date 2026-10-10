@@ -218,6 +218,24 @@ describe('other ways a push could go out without a conflict check', () => {
   })
 })
 
+describe('food logged in two tabs', () => {
+  it('a meal saved in each tab is still there after both have saved', async () => {
+    const srv = server({ ...clone(DEF), _ts: 100, workouts: [w('w1')], foodEntries: [], _rev: 1 })
+    savedCopy(srv.doc, 1)
+    const A = await openTab()
+    const B = await openTab()
+    A.getState().update(s => { s.foodEntries.push({ id: 'yogurt', name: 'yogurt', date: '2026-10-01', time: '08:00', protein: 12, calories: 140 }) })
+    await A.getState().pushState()
+    B.getState().update(s => { s.foodEntries.push({ id: 'oats', name: 'oats', date: '2026-10-01', time: '09:00', protein: 5, calories: 150, source: 'livy' }) })
+    await B.getState().pushState()
+    const idsOf = st => (st.foodEntries || []).map(e => e.id).sort()
+    expect(idsOf(srv.doc)).toEqual(['oats', 'yogurt'])
+    expect(srv.doc.foodEntries.find(e => e.id === 'oats').source).toBe('livy')
+    expect(idsOf(B.getState().S)).toEqual(['oats', 'yogurt'])
+    expect(idsOf(saved())).toEqual(['oats', 'yogurt'])
+  })
+})
+
 describe('routines edited on two devices', () => {
   it('a conflict keeps each routine as it was edited last, whichever copy is newer as a whole', async () => {
     const r = (id, reps) => ({ id, name: id, ex: [{ id: 'bench', sets: 3, reps }] })

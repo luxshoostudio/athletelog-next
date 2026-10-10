@@ -1,7 +1,7 @@
 // Cardio speed in km/h or mph (Discord "miles per hour"): stored in km/h, shown and typed in
 // the profile's unit, and exact both ways for what a person types.
 import { afterEach, describe, it, expect } from 'vitest'
-import { KMH_PER_MPH, speedUnitOf, speedLabel, toSpeed, fromSpeed, fmtSpeed, milesFor, paceFor, speedForPace, speedForMiles } from './speed.js'
+import { KMH_PER_MPH, speedUnitOf, speedLabel, toSpeed, fromSpeed, fmtSpeed, milesFor, paceFor, speedForPace, speedForMiles, reconcileRunningSet } from './speed.js'
 import { setLabel, exLine } from './history.js'
 import { planPrintHTML } from './plan-share.js'
 import { setWeightDecimals } from './format.js'
@@ -77,6 +77,18 @@ describe('running distance and pace', () => {
     expect(paceFor(speed)).toBeCloseTo(10, 8)
     expect(milesFor(30, speed)).toBeCloseTo(3, 8)
     expect(speedForMiles(3, 30)).toBeCloseTo(speed, 8)
+  })
+
+  it('rewrites miles after a later pace or duration edit', () => {
+    const withMiles = reconcileRunningSet({ min: 30, speed: 10 }, 'distanceMi', 3)
+    expect(withMiles.distanceMi).toBe(3)
+    expect(withMiles.speed).toBeCloseTo(speedForMiles(3, 30), 5)
+    const afterPace = reconcileRunningSet(withMiles, 'speed', speedForPace(12))
+    expect(afterPace.distanceMi).toBeCloseTo(milesFor(30, afterPace.speed), 5)
+    expect(afterPace.distanceMi).not.toBeCloseTo(3, 1)
+    const afterTime = reconcileRunningSet(afterPace, 'min', 45)
+    expect(afterTime.speed).toBe(afterPace.speed)
+    expect(afterTime.distanceMi).toBeCloseTo(milesFor(45, afterPace.speed), 5)
   })
 })
 

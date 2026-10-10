@@ -4,8 +4,8 @@ import { useStore } from '../store/useStore.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import {
-  breakfastEntry, foodCatalogue, foodDay, foodSearch, foodTime, frequentFoods,
-  learnedBreakfast, lookupBarcode, makeFoodEntry, normalizedFood, totalsForDay,
+  breakfastEntry, entryFromDraft, foodDay, foodSearch, foodTime, frequentFoods,
+  learnedBreakfast, lookupBarcode, macrosForAmount, perUnitFood, scaledFood, totalsForDay,
 } from '../lib/food.js'
 import { athleteLogImport, mergeAthleteLogImport } from '../lib/import-athletelog.js'
 
@@ -20,23 +20,43 @@ function Macro({ label, value, target, unit }) {
   </div>
 }
 
+const MACRO_FIELDS = ['calories', 'protein', 'fiber', 'fat', 'carbs']
+
 function EntryEditor({ entry, onSave, onClose }) {
+  // Macros on screen are the totals for the amount. Amount edits scale from the portion those
+  // numbers belonged to, not from the previous keystroke, and Save stores that total as-is.
+  const base = useRef({
+    amount: Number(entry.amount) || Number(entry.qty) || 1,
+    macros: Object.fromEntries(MACRO_FIELDS.map(k => [k, entry[k] ?? ''])),
+  })
   const [draft, setDraft] = useState({ ...entry })
   const field = key => ({ value: draft[key] ?? '', onChange: e => setDraft(x => ({ ...x, [key]: e.target.value })) })
+  const setMacro = (key, value) => setDraft(x => {
+    const amount = Number(x.amount) || base.current.amount || 1
+    base.current = { amount, macros: { ...Object.fromEntries(MACRO_FIELDS.map(k => [k, x[k] ?? ''])), [key]: value } }
+    return { ...x, [key]: value }
+  })
+  const setAmount = value => setDraft(x => ({ ...x, amount: value, ...macrosForAmount(base.current.amount, base.current.macros, value) }))
+  const save = () => {
+    if (!draft.name.trim()) return
+    const amount = Number(draft.amount) || base.current.amount || 1
+    const macros = macrosForAmount(base.current.amount, base.current.macros, amount)
+    onSave({ ...draft, amount, ...Object.fromEntries(MACRO_FIELDS.map(k => [k, Number(macros[k]) || 0])) })
+  }
   return <div className="card food-editor">
     <div className="row between"><h2>{entry.id ? 'Edit food' : 'Add food'}</h2><button className="iconbtn" onClick={onClose}><Icon name="xmark" /></button></div>
     <label>Name<input {...field('name')} autoFocus /></label>
     <div className="food-form-grid">
-      <label>Amount<input type="number" inputMode="decimal" {...field('amount')} /></label>
+      <label>Amount<input type="number" inputMode="decimal" value={draft.amount ?? ''} onChange={e => setAmount(e.target.value)} /></label>
       <label>Unit<input {...field('unit')} /></label>
-      <label>Calories<input type="number" inputMode="decimal" {...field('calories')} /></label>
-      <label>Protein (g)<input type="number" inputMode="decimal" {...field('protein')} /></label>
-      <label>Fiber (g)<input type="number" inputMode="decimal" {...field('fiber')} /></label>
-      <label>Carbs (g)<input type="number" inputMode="decimal" {...field('carbs')} /></label>
+      <label>Calories<input type="number" inputMode="decimal" value={draft.calories ?? ''} onChange={e => setMacro('calories', e.target.value)} /></label>
+      <label>Protein (g)<input type="number" inputMode="decimal" value={draft.protein ?? ''} onChange={e => setMacro('protein', e.target.value)} /></label>
+      <label>Fiber (g)<input type="number" inputMode="decimal" value={draft.fiber ?? ''} onChange={e => setMacro('fiber', e.target.value)} /></label>
+      <label>Carbs (g)<input type="number" inputMode="decimal" value={draft.carbs ?? ''} onChange={e => setMacro('carbs', e.target.value)} /></label>
       <label>Date<input type="date" {...field('date')} /></label>
       <label>Time<input type="time" {...field('time')} /></label>
     </div>
-    <Button variant="primary" onClick={() => draft.name.trim() && onSave({ ...draft, calories: +draft.calories || 0, protein: +draft.protein || 0, fiber: +draft.fiber || 0, fat: +draft.fat || 0, carbs: +draft.carbs || 0, amount: +draft.amount || 1 })}>Save</Button>
+    <Button variant="primary" onClick={save}>Save</Button>
   </div>
 }
 
@@ -62,15 +82,20 @@ export default function Food() {
 
   const commit = draft => {
     update(state => {
+      const saved = entryFromDraft(draft)
       state.foodEntries ||= []
-      if (draft.id) state.foodEntries = state.foodEntries.map(x => x.id === draft.id ? { ...x, ...draft } : x)
-      else state.foodEntries.push(makeFoodEntry(draft, { amount: draft.amount, date: draft.date, time: draft.time, source: draft.source }))
+      if (draft.id) state.foodEntries = state.foodEntries.map(x => x.id === draft.id ? saved : x)
+      else state.foodEntries.push(saved)
       state.foodItems ||= {}
-      state.foodItems[draft.name.toLocaleLowerCase()] = normalizedFood(draft)
+      state.foodItems[saved.name.toLocaleLowerCase()] = perUnitFood(saved)
     })
     setEditing(null); setQuery('')
   }
-  const quickAdd = item => setEditing({ ...item, amount: item.qty || 1, date: day, time: foodTime() })
+  const quickAdd = item => {
+    const per = perUnitFood(item)
+    const amount = Number(item.lastAmount) || per.qty || 1
+    setEditing({ ...scaledFood(per, amount), qty: per.qty, unit: per.unit, date: day, time: foodTime() })
+  }
   const remove = id => update(state => { state.foodEntries = (state.foodEntries || []).filter(x => x.id !== id) })
   const toggleFav = name => update(state => {
     const key = name.toLocaleLowerCase(); state.favoriteFoods ||= []

@@ -16,7 +16,7 @@ import { pushSupported, enablePush, disablePush, sendTestPush, syncPushSubscript
 import { wakeLockSupported } from '../lib/wakelock.js'
 import { t, tn, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, baseLang, dateLocale } from '../lib/i18n.js'
 import { effectiveLang } from '../lib/default-lang.js'
-import { DEMO, REPO } from '../lib/demo.js'
+import { DEMO, LOCAL_ONLY, REPO } from '../lib/demo.js'
 import { MOBILE, isAndroid, shareExport, shareExportBlob, syncReminder } from '../lib/mobile.js'
 import { NUDGE_COPY, NUDGE_TONES, toneOf } from '../lib/nudge.js'
 import { referencedFiles } from '../lib/media-refs.js'
@@ -811,7 +811,7 @@ export default function Settings({ page = null, find = null, via = null }) {
       </ServerSyncSection>}
 
       {/* account (demo and mobile builds have nothing to sign in to) */}
-      {!(MOBILE && user) && <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
+      {!(MOBILE && user) && <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : LOCAL_ONLY ? 'This device' : t('Account')}>
         {MOBILE ? <>
           <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud. Back it up anytime in Data & backup.')} />
           <Row icon="cloud" iconTint="var(--indigo)" title={t('Connect to my server')} subtitle={t('Sync this device to your own self-hosted openGym instead.')} accessory="chevron"
@@ -823,6 +823,10 @@ export default function Settings({ page = null, find = null, via = null }) {
             onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
           <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host openGym')} subtitle={t('Passkey sign-in, sync across your devices, your own data.')} accessory="chevron"
             onClick={() => window.open(REPO, '_blank', 'noopener')} />
+        </> : LOCAL_ONLY ? <>
+          <Row icon="lock" iconTint="var(--acc)" title="All data stays on this device" subtitle="Training and nutrition stay in this browser. There is no account and no cloud sync." />
+          <Row icon="download" iconTint="var(--blue)" title="Export a backup" subtitle="Settings keeps a copy you can save, so a cleared browser does not take the log with it." accessory="chevron"
+            onClick={() => nav('/settings/data')} />
         </> : user ? <>
           {user.admin && <Row icon="crown" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           <PasskeysRow state={passkeys.st} changed={credsChanged} />
@@ -852,7 +856,8 @@ export default function Settings({ page = null, find = null, via = null }) {
         </>}
       </Section>}
       {/* The connection banner already says this to a guest; the line is for when it is switched off. */}
-      {!user && !DEMO && !MOBILE && !showsConnection(S) && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode: your data lives only in this browser.')}</p>}
+      {!user && !DEMO && !LOCAL_ONLY && !MOBILE && !showsConnection(S) && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode: your data lives only in this browser.')}</p>}
+      {LOCAL_ONLY && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>Training and nutrition stay on this device. Export a backup regularly.</p>}
     </>,
   }
 
@@ -888,6 +893,7 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go }) {
   const hits = q.trim() ? searchSettings(q, ctx) : null
   // The account card: who this is, and the one line that matters about it.
   const acct = DEMO ? { title: t('Demo'), sub: t('Example data, only in this browser.') }
+    : LOCAL_ONLY ? { title: 'This device', sub: 'Training and nutrition stay on this device.' }
     : user ? {
       title: user.name || t('Account'),
       sub: sync && sync.status && sync.status !== 'ok' ? t('Sync needs a look') : MOBILE ? t('Synced with your server') : t('Account, devices and sync'),

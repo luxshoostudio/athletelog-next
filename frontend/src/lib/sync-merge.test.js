@@ -944,6 +944,67 @@ describe('settings and plan days keep the change made last', () => {
   })
 })
 
+describe('food logs merge per entry', () => {
+  const meal = (id, over = {}) => ({ id, name: id, date: '2026-10-01', time: '08:00', protein: 10, calories: 100, ...over })
+
+  it('keeps a meal logged on either device', () => {
+    const a = base({ _ts: 200, foodEntries: [meal('yogurt', { protein: 12, calories: 140 })] })
+    const b = base({ _ts: 100, foodEntries: [meal('oats', { date: '2026-10-02', protein: 5, calories: 150, source: 'livy' })] })
+    for (const m of [mergeStates(a, b), mergeStates(b, a)]) {
+      expect(m.foodEntries.map(e => e.id)).toEqual(['yogurt', 'oats'])
+      expect(m.foodEntries.find(e => e.id === 'oats').source).toBe('livy')
+    }
+  })
+
+  it('keeps each field from the side that edited it last, undo included', () => {
+    const a = base({ _ts: 300, foodEntries: [meal('yogurt', { protein: 10, calories: 80, _ts: 200, _f: { protein: 200, calories: 50, name: 50 }, _u: { protein: [50, 150, 200] } })] })
+    const b = base({ _ts: 100, foodEntries: [meal('yogurt', { name: 'greek yogurt', protein: 12, calories: 90, _ts: 140, _f: { name: 140, protein: 140, calories: 50 } })] })
+    const m = mergeStates(a, b)
+    expect(m.foodEntries).toHaveLength(1)
+    // protein 12 was edited on B after the value A's undo put back, and before the edit A undid
+    expect(m.foodEntries[0].protein).toBe(12)
+    expect(m.foodEntries[0].name).toBe('greek yogurt')
+    expect(m.foodEntries[0].calories).toBe(80)
+  })
+
+  it('a deletion stays deleted and does not drop the other device\'s meal', () => {
+    const prev = base({ foodEntries: [meal('yogurt', { _ts: 10 })] })
+    const next = base({ foodEntries: [] })
+    stampChange(prev, next, 1000)
+    expect(next.deleted.foodEntries.yogurt).toBeGreaterThan(10)
+    const other = base({ _ts: 50, foodEntries: [meal('yogurt', { _ts: 10 }), meal('oats', { _ts: 20 })] })
+    expect(mergeStates(next, other).foodEntries.map(e => e.id)).toEqual(['oats'])
+    const editedAfter = base({ _ts: 50, foodEntries: [meal('yogurt', { protein: 18, _ts: next.deleted.foodEntries.yogurt + 5 })] })
+    expect(mergeStates(next, editedAfter).foodEntries.map(e => e.protein)).toEqual([18])
+  })
+
+  it('unions favourites, the food bank and import batches, and honours an unstar', () => {
+    const a = base({ _ts: 200, favoriteFoods: ['yogurt'], importBatches: ['batch-a'], foodItems: { yogurt: { name: 'yogurt', protein: 10, _ts: 50 } } })
+    const b = base({ _ts: 100, favoriteFoods: ['oats'], importBatches: ['batch-b'], foodItems: { yogurt: { name: 'yogurt', protein: 12, _ts: 80 }, oats: { name: 'oats', protein: 5, _ts: 40 } } })
+    const m = mergeStates(a, b)
+    expect(m.favoriteFoods.sort()).toEqual(['oats', 'yogurt'])
+    expect(m.importBatches.sort()).toEqual(['batch-a', 'batch-b'])
+    expect(m.foodItems.yogurt.protein).toBe(12)
+    expect(m.foodItems.oats.protein).toBe(5)
+    const prev = base({ favoriteFoods: ['yogurt', 'oats'] })
+    const unstarred = base({ favoriteFoods: ['oats'] })
+    stampChange(prev, unstarred, 1000)
+    const back = mergeStates(unstarred, base({ _ts: 50, favoriteFoods: ['yogurt', 'chia'] }))
+    expect(back.favoriteFoods.sort()).toEqual(['chia', 'oats'])
+  })
+
+  it('sign-in keeps the profile\'s meal and adds the guest\'s, and localExtras counts only the guest\'s', () => {
+    const server = base({ _ts: 100, foodEntries: [meal('oats', { protein: 5 })], favoriteFoods: ['oats'] })
+    const guest = base({ _ts: 900, foodEntries: [meal('oats', { protein: 99 }), meal('yogurt')], favoriteFoods: ['yogurt'], customEx: [{ id: 'lux-running', n: 'running', preset: true }] })
+    const m = mergeStates(server, guest, { prefer: 'a' })
+    expect(m.foodEntries.map(e => e.id).sort()).toEqual(['oats', 'yogurt'])
+    expect(m.foodEntries.find(e => e.id === 'oats').protein).toBe(5)
+    expect(m.favoriteFoods.sort()).toEqual(['oats', 'yogurt'])
+    expect(localExtras(guest, server)).toEqual({ workouts: 0, bodyweight: 0, customEx: 0, food: 1 })
+    expect(localExtras(server, server).food).toBeUndefined()
+  })
+})
+
 describe('a reset leads the unit over a copy that switched before it', () => {
   it('the reset copy is in kg, the stale lb copy is converted into it', () => {
     const R = 5000
