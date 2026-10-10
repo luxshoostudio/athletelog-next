@@ -25,7 +25,12 @@
 .home-food-totals i { font-size:.68rem; font-style:normal; text-transform:uppercase; letter-spacing:.08em; color:var(--label-2); }
 .food-page { padding-bottom:112px; }
 .food-summary { display:grid; gap:15px; }
-.food-date { justify-self:start; width:auto; font:inherit; font-weight:600; }
+.food-date {
+  justify-self:start; width:auto; max-width:100%; min-width:0;
+  font:inherit; font-weight:600;
+  border:1px solid var(--line); border-radius:var(--r); padding:10px 12px;
+  background:var(--surface-2); color:var(--label); box-sizing:border-box;
+}
 .food-macro { display:grid; gap:7px; }
 .food-progress { height:7px; border-radius:999px; overflow:hidden; background:var(--surface-3); }
 /* Light track is white, not the warm control fill: the protein orange is 3:1 on white and
@@ -37,11 +42,23 @@
 .food-macro.fat .food-progress i { background:var(--fat); }
 .food-search-row { display:grid; grid-template-columns:auto minmax(0,1fr) 38px 38px; gap:8px; align-items:center; }
 .food-search-row > svg { color:var(--label-3); }
-.food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
+.food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; max-width:100%; border:1px solid var(--line); border-radius:var(--r); padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
+/* Single-line search and barcode fields are pills, like the old add row. Higher specificity
+   than the shared 12px radius so a later input reset cannot square them off again. */
+.food-page .food-search-row input,.food-page .food-scan input { border-radius:999px; }
 .food-scan { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:12px; }
 .food-results { display:grid; margin-top:10px; border-top:1px solid var(--line); }
 .food-results button,.food-empty-add { padding:12px 2px; border:0; border-bottom:1px solid var(--line); background:none; color:inherit; display:flex; justify-content:space-between; gap:12px; text-align:start; font:inherit; }
 .food-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0 16px; }
+/* The goal labels are grid items. Without min-width:0 a native number field's ~20ch
+   min-content size stretches the right column past the card and off a 390px screen. */
+.food-form-grid > * { min-width:0; }
+.food-form-grid label { display:grid; gap:5px; color:var(--label-2); font-size:.78rem; }
+.food-form-grid input {
+  width:100%; min-width:0; max-width:100%; box-sizing:border-box;
+  border:1px solid var(--line); border-radius:var(--r); padding:10px 12px;
+  background:var(--surface-2); color:var(--label); font:inherit;
+}
 .food-editor label { min-width:0; display:grid; gap:5px; color:var(--label-2); font-size:.78rem; }
 .food-chips { display:flex; gap:7px; overflow-x:auto; padding:4px 0; scrollbar-width:none; }
 .food-chips button { flex:0 0 auto; border:1px solid var(--line); background:var(--surface-2); color:var(--label); border-radius:999px; padding:8px 12px; font:inherit; font-size:.82rem; }
@@ -191,7 +208,7 @@ html{
 }
 body{
   background:var(--bg);color:var(--label);
-  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI',Roboto,system-ui,sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,sans-serif;
   font-size:17px;line-height:1.29;letter-spacing:-.01em;
   min-height:100vh;min-height:100dvh;overscroll-behavior-y:none;overflow-x:clip;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
@@ -200,6 +217,11 @@ body{
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;letter-spacing:inherit}
 input,select,textarea{font:inherit;color:var(--label);letter-spacing:inherit}
+/* Text controls share the 12px button radius. Checkboxes, radios, sliders, colour swatches
+   and file pickers keep their own shape. :not() with a list counts as one attribute, so a
+   search pill or a stepper can still override this. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"]),
+select,textarea{border-radius:var(--r);max-width:100%;min-width:0}
 img{max-width:100%}
 a{color:var(--acc);text-decoration:none}
 :focus{outline:none}
@@ -681,7 +703,7 @@ body.chips-dragging *{cursor:inherit}
   position:absolute;inset-inline-start:11px;font-size:16px;color:var(--label-3);
   pointer-events:none;--icon-stroke:2.1;z-index:1;
 }
-.searchf .field{padding-inline-start:35px;padding-inline-end:36px;background:var(--surface-2);border-radius:10px}
+.searchf .field{padding-inline-start:35px;padding-inline-end:36px;background:var(--surface-2);border-radius:999px}
 :root[data-theme="light"] .searchf .field{background:var(--surface-3)}
 .searchf .clear{
   position:absolute;inset-inline-end:8px;width:22px;height:22px;border-radius:50%;
@@ -690,7 +712,7 @@ body.chips-dragging *{cursor:inherit}
 }
 /* legacy .search wrapper */
 .search{position:relative}
-.search .input{padding-inline-start:35px;background:var(--surface-2);border-radius:10px}
+.search .input{padding-inline-start:35px;background:var(--surface-2);border-radius:999px}
 :root[data-theme="light"] .search .input{background:var(--surface-3)}
 .search>svg{
   position:absolute;inset-inline-start:11px;top:50%;transform:translateY(-50%);z-index:1;
@@ -787,7 +809,7 @@ body.chips-dragging *{cursor:inherit}
 
 /* native time input, restyled to sit in a row like a value label */
 .timef{
-  background:var(--surface-2);border:none;border-radius:8px;padding:6px 10px;
+  background:var(--surface-2);border:none;border-radius:var(--r);padding:6px 10px;
   font-size:16px;color:var(--label);outline:none;font-variant-numeric:tabular-nums;
 }
 /* A date or time field is as wide as the browser draws it and will not give way, and neither will
