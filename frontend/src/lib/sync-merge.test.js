@@ -956,6 +956,15 @@ describe('food logs merge per entry', () => {
     }
   })
 
+  it('keeps both meals when each device stamped the food log', () => {
+    const phone = base({ _ts: 100, foodEntries: [meal('yogurt')], edited: { foodEntries: 100 } })
+    const desk = base({ _ts: 300, foodEntries: [meal('oats', { source: 'livy' })], edited: { foodEntries: 300 } })
+    for (const m of [mergeStates(phone, desk), mergeStates(desk, phone)]) {
+      expect(m.foodEntries.map(e => e.id).sort()).toEqual(['oats', 'yogurt'])
+      expect(m.edited.foodEntries).toBe(300)
+    }
+  })
+
   it('keeps each field from the side that edited it last, undo included', () => {
     const a = base({ _ts: 300, foodEntries: [meal('yogurt', { protein: 10, calories: 80, _ts: 200, _f: { protein: 200, calories: 50, name: 50 }, _u: { protein: [50, 150, 200] } })] })
     const b = base({ _ts: 100, foodEntries: [meal('yogurt', { name: 'greek yogurt', protein: 12, calories: 90, _ts: 140, _f: { name: 140, protein: 140, calories: 50 } })] })

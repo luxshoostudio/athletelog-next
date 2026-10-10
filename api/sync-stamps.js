@@ -40,6 +40,14 @@
 const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const list = v => (Array.isArray(v) ? v : []);
 const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+// The food log without the stamps a save writes on each entry (sync-merge.js foodLogChanged).
+const foodLogSig = xs => JSON.stringify((Array.isArray(xs) ? xs : []).map(e => {
+  if (!e || typeof e !== 'object') return e;
+  const o = { ...e };
+  delete o._ts; delete o._f; delete o._u;
+  return o;
+}));
+const foodLogChanged = (a, b) => foodLogSig(a) !== foodLogSig(b);
 const clone = v => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
 
 const workoutKey = w => (w?.id != null ? w.id : `${w?.d}|${w?.start}`);
@@ -300,6 +308,9 @@ function stampUnstamped(cur, next, sent, now, own = null) {
     if (stale(ORDER_KEY)) next.routines = inOrderOf(cur.routines, next.routines);
     else if (!moved(ORDER_KEY)) ed[ORDER_KEY] = now;
   }
+  // The food log is merged entry by entry, so a stale copy must not put the whole list back.
+  // A writer that changed it and did not stamp `edited.foodEntries` still gets that stamp.
+  if (foodLogChanged(cur.foodEntries, next.foodEntries) && !moved('foodEntries') && !stale('foodEntries')) ed.foodEntries = now;
   if (Object.keys(ed).length) next.edited = ed;
   // Entries edited without stamps of their own: a routine, a custom exercise, a profile, a card,
   // a workout whose content changed. The same rule per field: one the stored entry changed (`_f`)

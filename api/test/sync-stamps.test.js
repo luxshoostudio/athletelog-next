@@ -24,6 +24,34 @@ const stored = () => ({
   deleted: { workouts: { w9: NOW - 4000 } }, edited: { restSec: NOW - 4000 },
 });
 
+test('a food add, edit, or delete is stamped without replacing the other meals', () => {
+  const cur = stored();
+  cur.foodEntries = [{ id: 'yogurt', name: 'yogurt', calories: 80, _ts: NOW - 8000 }];
+  cur.edited = { ...cur.edited, foodEntries: NOW - 8000 };
+  const added = clone(cur);
+  added.foodEntries = [
+    { id: 'yogurt', name: 'yogurt', calories: 80, _ts: NOW - 8000 },
+    { id: 'oats', name: 'oats', calories: 150 },
+  ];
+  stampPut(cur, added, { overRead: true, stamped: false, now: NOW });
+  assert.deepEqual(added.foodEntries.map(e => e.id), ['yogurt', 'oats']);
+  assert.ok(added.edited.foodEntries >= NOW);
+  assert.ok(added.foodEntries.find(e => e.id === 'oats')._ts >= NOW);
+
+  const edited = clone(added);
+  edited.foodEntries = edited.foodEntries.map(e => e.id === 'yogurt' ? { ...e, calories: 90 } : e);
+  stampPut(added, edited, { overRead: true, stamped: false, now: NOW + 1000 });
+  assert.equal(edited.foodEntries.find(e => e.id === 'yogurt').calories, 90);
+  assert.ok(edited.edited.foodEntries >= NOW + 1000);
+
+  const removed = clone(edited);
+  removed.foodEntries = removed.foodEntries.filter(e => e.id !== 'oats');
+  stampPut(edited, removed, { overRead: true, stamped: false, now: NOW + 2000 });
+  assert.deepEqual(removed.foodEntries.map(e => e.id), ['yogurt']);
+  assert.ok(removed.deleted.foodEntries.oats >= NOW + 2000);
+  assert.ok(removed.edited.foodEntries >= NOW + 2000);
+});
+
 test('an older app\'s push over the current revision keeps the records and gets its changes stamped', () => {
   const cur = stored();
   const next = clone(cur);

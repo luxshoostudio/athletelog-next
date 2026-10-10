@@ -30,8 +30,10 @@
  *     edited last by its own `_ts` (stampRoutines), the newer copy's on a tie
  *   - bodyweight: union by day, the later-edited (`t`) entry of a day that both have
  *   - foodEntries: union by id, field by field like a workout (stampEntry / mergeEntry), so a meal
- *     logged on one device is not replaced by the other device's list. foodItems: key union, the
- *     entry edited last by its own `_ts`. favoriteFoods: ordered set union, like favEx.
+ *     logged on one device is not replaced by the other device's list. The log still stamps
+ *     `edited.foodEntries` when it changes, so the save pushes; that stamp does not choose the list.
+ *     foodItems: key union, the entry edited last by its own `_ts`. favoriteFoods: ordered set
+ *     union, like favEx.
  *     importBatches: set union, so a batch imported on one device stays imported on the other
  *   - favEx: ordered set union, the newer copy first
  *   - exWeights: union by exercise, the better `w` for that exercise — larger for an ordinary
@@ -635,6 +637,18 @@ export function orderMoved(a, b) {
 const EDIT_KEEP_MS = 180 * 86400000
 const same = (x, y) => JSON.stringify(x) === JSON.stringify(y)
 
+// The food log, without the stamps a save writes on each entry. Add, edit and delete all show
+// up here; a stamp-only rewrite does not. Undefined and an empty list are the same log.
+const foodLogSig = xs => JSON.stringify((Array.isArray(xs) ? xs : []).map(e => {
+  if (!e || typeof e !== 'object') return e
+  const o = { ...e }
+  delete o._ts
+  delete o._f
+  delete o._u
+  return o
+}))
+const foodLogChanged = (a, b) => foodLogSig(a) !== foodLogSig(b)
+
 /**
  * Stamps in `next.edited` every field (and every day of the plan, note, bar weight) that differs
  * from `prev`, at `now`. Mutates and returns `next`.
@@ -655,6 +669,10 @@ export function stampEdits(prev, next, now = Date.now()) {
     } else if (p !== n && !same(p, n)) { ed[k] = now; touched = true }
   }
   if (prev && prev.routines !== next.routines && orderMoved(prev.routines, next.routines)) { ed[ORDER_KEY] = now; touched = true }
+  // Food stays in OWN_MERGE: the list is joined entry by entry, and this stamp must not hand the
+  // whole log to whichever copy touched food last. Add, edit and delete still record
+  // `edited.foodEntries`, so the save carries a time and the debounced push sends the meal.
+  if (foodLogChanged(prev?.foodEntries, next.foodEntries)) { ed.foodEntries = now; touched = true }
   // An own accent colour is one choice made in two fields: picking a new colour while the own
   // colour is already on changes only accentCustom, and a preset picked earlier on another device
   // then kept `accent` and won (QA 2026-10-06). Either one changed to an own colour stamps both.
