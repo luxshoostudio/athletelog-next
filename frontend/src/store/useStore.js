@@ -26,6 +26,7 @@ import { DEFAULT_TEMPLATE_ID } from '../lib/structuralBalanceTemplates.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
 import { sanitizeAccent } from '../lib/accent.js'
+import { FOOD_TARGETS } from '../lib/food.js'
 
 const KEY = 'gym_state_v1'
 // Where the saved copy stands with the server: the revision it descends from, and its own `_ts`
@@ -100,7 +101,7 @@ export const DEF = {
   // AthleteLog Next nutrition data. Entries and personal foods travel with the same local
   // backup as workouts; usage is derived from entries so it can never drift out of sync.
   foodEntries: [], foodItems: {}, mealPresets: [], favoriteFoods: [], foodUsage: {},
-  nutritionTargets: { calories: 1300, protein: 140, fiber: 30 }, importBatches: [],
+  nutritionTargets: { ...FOOD_TARGETS }, importBatches: [],
   // Stats activity heatmap metric. Profiles without this key continue to open on time.
   heatmapMetric: 'time',
   // How the active workout is laid out — 'cards' (one exercise at a time with Prev/Next),

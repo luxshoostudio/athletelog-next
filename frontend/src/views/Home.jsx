@@ -14,7 +14,7 @@ import { useConnectionTrouble } from '../components/SyncBanner.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
-import { foodDay, frequentFoods, totalsForDay } from '../lib/food.js'
+import { foodDay, frequentFoods, goalSuffix, nutritionGoals, totalsForDay } from '../lib/food.js'
 
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
@@ -40,7 +40,7 @@ export default function Home() {
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
   const foodTotals = totalsForDay(S.foodEntries, foodDay())
-  const nutritionTargets = { calories: 1300, protein: 140, fiber: 30, ...(S.nutritionTargets || {}) }
+  const nutritionTargets = nutritionGoals(S.nutritionTargets)
   const quickFoods = frequentFoods(S, 4)
 
   const ws = weekStartOf(S)
@@ -166,9 +166,11 @@ export default function Home() {
         <Button size="sm" variant="primary" icon="plus" onClick={() => nav('/food')}>Add food</Button>
       </div>
       <button className="home-food-totals" onClick={() => nav('/food')}>
-        <span><b>{Math.round(foodTotals.calories)}</b><small>/ {nutritionTargets.calories} kcal</small><i>Calories</i></span>
-        <span><b>{Math.round(foodTotals.protein)}</b><small>/ {nutritionTargets.protein} g</small><i>Protein</i></span>
-        <span><b>{Math.round(foodTotals.fiber)}</b><small>/ {nutritionTargets.fiber} g</small><i>Fiber</i></span>
+        <span><b>{Math.round(foodTotals.calories)}</b><small>{goalSuffix('calories', nutritionTargets, 'kcal')}</small><i>Calories</i></span>
+        <span><b>{Math.round(foodTotals.protein)}</b><small>{goalSuffix('protein', nutritionTargets, 'g')}</small><i>Protein</i></span>
+        <span><b>{Math.round(foodTotals.fiber)}</b><small>{goalSuffix('fiber', nutritionTargets, 'g')}</small><i>Fiber</i></span>
+        <span><b>{Math.round(foodTotals.fat)}</b><small>{goalSuffix('fat', nutritionTargets, 'g')}</small><i>Fat</i></span>
+        <span><b>{Math.round(foodTotals.carbs)}</b><small>{goalSuffix('carbs', nutritionTargets, 'g')}</small><i>Carbs</i></span>
       </button>
       <div className="food-chips home-food-chips">{quickFoods.map(item => <button key={item.name} onClick={() => nav('/food')}>{item.name}</button>)}</div>
     </div>

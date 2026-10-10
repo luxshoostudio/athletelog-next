@@ -1,6 +1,56 @@
 import { FOOD_ALIASES, FOOD_BANK } from './food-db.js'
 
-export const FOOD_TARGETS = { calories: 1300, protein: 140, fiber: 30 }
+export const FOOD_TARGETS = { calories: 1300, protein: 125, fiber: 25 }
+const GOAL_KEYS = ['calories', 'protein', 'fiber', 'fat', 'carbs']
+const LIMIT_KEYS = new Set(['calories', 'protein', 'fiber'])
+
+// A stored goal counts only when it is a positive number. Blank, zero, and junk are unset,
+// which is how fat and carbs stay off the books until someone types a number.
+export function goalNumber(value) {
+  if (value === '' || value == null || value === false) return null
+  const num = Number(value)
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
+// Calories, protein, and fiber fall back to the defaults. Fat and carbs are copied only when
+// set, and they are never limits: going past them does not warn.
+export function nutritionGoals(targets) {
+  const src = targets && typeof targets === 'object' ? targets : {}
+  const out = {}
+  for (const key of ['calories', 'protein', 'fiber']) out[key] = goalNumber(src[key]) ?? FOOD_TARGETS[key]
+  for (const key of ['fat', 'carbs']) {
+    const set = goalNumber(src[key])
+    if (set != null) out[key] = set
+  }
+  return out
+}
+
+export function macroIsLimit(key) {
+  return LIMIT_KEYS.has(key)
+}
+
+export function macroOverLimit(key, value, goals = {}) {
+  if (!macroIsLimit(key)) return false
+  const goal = goalNumber(goals[key])
+  return goal != null && Number(value) > goal
+}
+
+// What the daily-goals form writes. An empty fat or carbs field is left out, so the saved
+// profile can keep those two unset.
+export function nutritionTargetsFromForm(form = {}) {
+  const out = {}
+  for (const key of GOAL_KEYS) {
+    const set = goalNumber(form[key])
+    if (set != null) out[key] = set
+  }
+  return out
+}
+
+export function goalSuffix(key, goals, unit) {
+  if (!macroIsLimit(key)) return unit
+  const goal = goalNumber(goals?.[key])
+  return goal == null ? unit : `/ ${goal} ${unit}`
+}
 const DAY = 86400000
 const clean = value => String(value || '').trim().toLocaleLowerCase()
 const n = value => Number.isFinite(Number(value)) ? Number(value) : 0
