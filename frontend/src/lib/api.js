@@ -83,7 +83,7 @@ async function exchange(url, init) {
   const body = parsed && data && typeof data === 'object' ? data : null
   // The body rides along on the error: a 409 from /api/data carries the server's document.
   if (!r.ok) { const e = new Error((body && body.error) || ('HTTP ' + r.status)); e.status = r.status; e.data = body || {}; throw e }
-  if (!body) throw failure(t('The server answered with something other than openGym data.'), 'bad-response', r.status)
+  if (!body) throw failure(t('The server answered with something other than Lux Log data.'), 'bad-response', r.status)
   return body
 }
 
@@ -193,7 +193,7 @@ export function apiUpload(path, blob, mime, { onProgress, idleMs = 60000, XHR = 
       if (body && typeof body !== 'object') body = null
       if (xhr.status >= 200 && xhr.status < 300) {
         if (body) resolve(body)
-        else reject(failure(t('The server answered with something other than openGym data.'), 'bad-response', xhr.status))
+        else reject(failure(t('The server answered with something other than Lux Log data.'), 'bad-response', xhr.status))
         return
       }
       if (xhr.status === 413 && !body) { reject(failure('HTTP 413', 'proxy-too-large', 413)); return }
@@ -263,14 +263,14 @@ async function whyUnreachable(base, ms) {
   // answer at all leaves the CORS explanation.
   const answer = reached ? await healthAnswer(base, ms) : null
   if (answer === 'front') {
-    return failure(t('That address answers, but a login page or proxy rule replied instead of openGym. Let /api/ through to openGym unchanged. See “Phone app and CORS” in docs/SELF_HOSTING.md.'), 'proxy-answered')
+    return failure(t('That address answers, but a login page or proxy rule replied instead of Lux Log. Let /api/ through to Lux Log unchanged. See “Phone app and CORS” in docs/SELF_HOSTING.md.'), 'proxy-answered')
   }
   if (answer === 'other') {
-    return failure(t('That address answers, but it isn’t an openGym server. Check the URL.'), 'not-opengym')
+    return failure(t('That address answers, but it isn’t a Lux Log server. Check the URL.'), 'not-opengym')
   }
   if (reached) {
     const origin = globalThis.location?.origin || 'https://localhost'
-    return failure(t('Your server was reached, but it refused the app’s request (CORS). If a reverse proxy such as Traefik adds CORS headers, let requests from {0} through to openGym unchanged. See “Phone app and CORS” in docs/SELF_HOSTING.md.', origin), 'cors')
+    return failure(t('Your server was reached, but it refused the app’s request (CORS). If a reverse proxy such as Traefik adds CORS headers, let requests from {0} through to Lux Log unchanged. See “Phone app and CORS” in docs/SELF_HOSTING.md.', origin), 'cors')
   }
   return failure(t('Could not reach {0}. Check the address and that this phone can reach it.', hostOfBase(base)), 'unreachable')
 }
@@ -309,7 +309,7 @@ export async function pairRedeem(serverBase, code, { probeMs = PROBE_MS } = {}) 
   }
   // Anything that is not a pairing would be saved as one — and the phone would then send every
   // change to a server that never gave it a token.
-  if (!data.token || !data.user) throw failure(t('The server answered with something other than openGym data.'), 'bad-response', 200)
+  if (!data.token || !data.user) throw failure(t('The server answered with something other than Lux Log data.'), 'bad-response', 200)
   return data
 }
 

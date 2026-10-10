@@ -161,10 +161,10 @@ describe('not connected — it says so, and what to do', () => {
     expect(bar().className).toContain('bad')
   })
 
-  it('an answer that is not openGym\'s (a proxy\'s login page) is named as such', () => {
+  it('an answer that is not Lux Log\'s (a proxy\'s login page) is named as such', () => {
     mocks.sync = sync('error', { lastError: { status: 200, code: 'bad-response' } })
     render()
-    expect(text()).toBe('Your server’s address answered with something other than openGym (HTTP 200). Your changes are kept here.')
+    expect(text()).toBe('Your server’s address answered with something other than Lux Log (HTTP 200). Your changes are kept here.')
   })
 
   it('phone refused by its server: "Pair again" opens the connect sheet with the address it had', () => {
