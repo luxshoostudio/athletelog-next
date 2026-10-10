@@ -2,10 +2,13 @@
 // deterministic fixture the public demo runs on. The pure lib functions have their own 92
 // tests in frontend/src/lib/*.test.js; here we pin JSON shape + the user-facing edge cases
 // (rest-day override, missing routine, zero-workout history, no synced state, superset links).
-import { describe, beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest'
+import { describe, beforeAll, afterAll, beforeEach, afterEach, test, expect, vi } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { buildDemoState } from '../../frontend/src/lib/demoSeed.js'
 import { EXDB } from '../../frontend/src/lib/exercises.js'
-import { _seedStateForTests } from '../src/state.js'
+import { _seedStateForTests, _setDataDirForTests } from '../src/state.js'
 import { TOOLS } from '../src/tools.js'
 import { bestSetOf } from '../../frontend/src/lib/onerm.js'
 
@@ -1257,5 +1260,60 @@ describe('date arguments must be dates the calendar has', () => {
       expect(r.rejected).toBeUndefined()
       expect(r.ok).toBe(true)
     }
+  })
+})
+
+describe('food logs and the Livy inbox', () => {
+  let dir
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'livy-mcp-'))
+    _setDataDirForTests(dir)
+  })
+  afterEach(() => {
+    _setDataDirForTests(null)
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  test('list_food_logs returns the last 7 days and list_workouts honors days', () => {
+    S.foodEntries = [
+      { id: 'old', name: 'old oats', date: '2026-07-01', time: '08:00', calories: 10, protein: 1, source: 'manual' },
+      { id: 'new', name: 'yogurt', date: '2026-07-26', time: '09:00', calories: 80, protein: 12, fiber: 0, fat: 0, carbs: 4, source: 'manual' },
+    ]
+    _seedStateForTests(S)
+    const food = call('list_food_logs', { days: 7 })
+    expect(food.entries.map(e => e.id)).toEqual(['new'])
+    expect(food.entries[0]).toMatchObject({ name: 'yogurt', calories: 80, protein: 12, source: 'manual', pending: false })
+    const recent = call('list_workouts', { days: 7 })
+    expect(recent.workouts.every(w => w.date >= '2026-07-21' && w.date <= '2026-07-27')).toBe(true)
+    expect(recent.matching_count).toBe(recent.workouts.length)
+  })
+
+  test('add_food_entry and add_workout_entry are idempotent and do not touch the profile', () => {
+    const before = JSON.stringify(S.workouts)
+    const food = call('add_food_entry', {
+      id: 'livy-yogurt', name: 'greek yogurt', amount: 100, unit: 'g',
+      calories: 59, protein: 10, date: '2026-07-27', time: '08:30',
+    })
+    expect(food).toMatchObject({ ok: true, id: 'livy-yogurt', source: 'livy', added: true, duplicate: false })
+    expect(food.entry).toMatchObject({ name: 'greek yogurt', calories: 59, protein: 10, source: 'livy' })
+    const again = call('add_food_entry', { id: 'livy-yogurt', name: 'greek yogurt', calories: 59, protein: 10, date: '2026-07-27' })
+    expect(again).toMatchObject({ added: false, duplicate: true })
+    const bench = EXDB.find(e => e.n === 'barbell bench press')
+    expect(bench).toBeTruthy()
+    const workout = call('add_workout_entry', {
+      id: 'livy-push', date: '2026-07-27', name: 'Push',
+      exercises: [{ exercise_name: bench.n, sets: [{ weight: 40, reps: 8 }] }],
+    })
+    expect(workout.added).toBe(true)
+    expect(workout.entry.entries[0].id).toBe(bench.id)
+    expect(workout.entry.source).toBe('livy')
+    expect(JSON.stringify(S.workouts)).toBe(before)
+    const listed = call('list_food_logs', { days: 2 })
+    expect(listed.entries.find(e => e.id === 'livy-yogurt')).toMatchObject({ pending: true, source: 'livy' })
+    expect(() => call('add_food_entry', { id: 'x', name: 'nope', calories: -5, date: '2026-07-27' })).toThrow(/calories/)
+    expect(() => call('add_workout_entry', {
+      id: 'livy-bad', date: '2026-07-27',
+      exercises: [{ exercise_name: 'not a real exercise', sets: [{ reps: 5 }] }],
+    })).toThrow(/exercise/)
   })
 })

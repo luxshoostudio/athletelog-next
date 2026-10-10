@@ -1953,4 +1953,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'A szürkék világos módban sötétebbek, hogy a gombok ne tűnjenek kikapcsoltnak.',
   'custom color picker': 'saját szín egyéni színválasztó',
   'Signed in from another tab. Your workout came along, keep going here.': 'Bejelentkeztél egy másik lapon. Az edzésed is jött vele, folytasd itt.',
+  '1 entry added by Livy': 'Livy hozzáadott 1 bejegyzést',
+  '{0} entries added by Livy': 'Livy hozzáadott {0} bejegyzést',
 }

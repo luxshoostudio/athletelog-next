@@ -243,7 +243,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <p class="api-facts">
     <span>OpenAPI 3.1.0</span>
     <span>openGym v1.3.10</span>
-    <span>69 endpoints</span>
+    <span>72 endpoints</span>
     <span>AGPL-3.0-or-later</span>
   </p>
 
@@ -1465,7 +1465,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <div class="ptab">
   <div class="prow rrow">
     <span class="r-code s2">200</span>
-    <span class="p-desc">The stored state, or null, and its revision.<span class="r-sig">{ state: <a href="#schema-State">State</a> | null, rev: integer }</span></span>
+    <span class="p-desc">The stored state, or null, and its revision.<span class="r-sig">{ state: <a href="#schema-State">State</a> | null, rev: integer, inbox: any[] }</span></span>
   </div>
   <div class="prow rrow">
     <span class="r-code s4">401</span>
@@ -1542,7 +1542,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="ep-sum">Current revision of the caller's profile state</span>
   </summary>
   <div class="ep-body">
-<p>The <code>rev</code> that <code>GET /api/data</code> would return, without the document. Signed-in clients poll this while open and on every return to the foreground and fetch the document only when the number changed.</p>
+<p>The <code>rev</code> that <code>GET /api/data</code> would return, without the document. Signed-in clients poll this while open and on every return to the foreground and fetch the document only when the number changed. <code>livy</code>, when present, is how many entries are waiting in the Livy inbox; it is omitted when that inbox is empty. It is not a new revision — the app reads <code>GET /api/livy/inbox</code> and appends those entries itself.</p>
     <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
 
 
@@ -1550,7 +1550,94 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <div class="ptab">
   <div class="prow rrow">
     <span class="r-code s2">200</span>
-    <span class="p-desc">The current revision (0 when the profile has no state yet).<span class="r-sig">{ rev: integer, wid: string }</span></span>
+    <span class="p-desc">The current revision (0 when the profile has no state yet).<span class="r-sig">{ rev: integer, wid: string, livy: integer }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-getLivyInbox">
+  <summary>
+    <span class="m get">GET</span>
+    <span class="ep-path"><code>/api/livy/inbox</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">List entries waiting for the app to copy in</span>
+  </summary>
+  <div class="ep-body">
+<p>Food and workout entries an agent added for this account, not yet acknowledged. Each item is <code>{ id, kind, entry, at }</code>. <code>entry.source</code> is always <code>livy</code>. The same session cookie as <code>GET /api/data</code>.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">Pending items, or an empty list.<span class="r-sig">{ items: object[] }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-postLivyInbox">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/livy/inbox</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Append food or workout entries for Livy</span>
+  </summary>
+  <div class="ep-body">
+<p>Append-only. One entry (<code>kind</code> plus the fields below) or <code>{ &quot;items&quot;: [ ... ] }</code> (at most 20). An <code>id</code> already in the inbox is skipped, not applied twice. Existing profile entries are not modified. <code>source</code> is forced to <code>livy</code>.</p>
+<p>Food fields: <code>id</code>, <code>name</code>, <code>amount</code>, <code>unit</code>, <code>calories</code>, <code>protein</code>, <code>fat</code>, <code>carbs</code>, <code>fiber</code>, <code>date</code> (<code>YYYY-MM-DD</code>), <code>time</code> (<code>HH:MM</code>), <code>barcode</code>. Macros are the totals for <code>amount</code>. Workout fields: <code>id</code>, <code>date</code>, <code>name</code>, <code>exercises</code> (<code>exercise_id</code>, <code>sets</code> of <code>weight</code>/<code>reps</code> or <code>w</code>/<code>r</code>). The MCP server writes the same file without this route; see <code>mcp/README.md</code>.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">What was queued, and ids that were already there.<span class="r-sig">{ ok: boolean, added: object[], skipped: object[] }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">The body was not a food or workout entry, or every item in the batch was rejected.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-ackLivyInbox">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/livy/inbox/ack</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Drop inbox entries the app has already copied in</span>
+  </summary>
+  <div class="ep-body">
+<p>Body <code>{ &quot;ids&quot;: [&quot;...&quot;] }</code>. Only those ids are removed. Unknown ids are ignored. The app sends this after appending the entries to its own profile.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The ids that were actually in the inbox.<span class="r-sig">{ ok: boolean, removed: string[] }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">Body must be an object with an ids array.</span>
   </div>
   <div class="prow rrow">
     <span class="r-code s4">401</span>

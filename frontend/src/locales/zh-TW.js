@@ -1943,4 +1943,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': '淺色模式下灰色會調暗一些，免得按鈕看起來像被停用了。',
   'custom color picker': '自訂顏色 自己的顏色 取色器 調色盤',
   'Signed in from another tab. Your workout came along, keep going here.': '已在另一個分頁登入。你的訓練也一起帶過去了，在這裡繼續吧。',
+  '1 entry added by Livy': 'Livy 新增了 1 筆紀錄',
+  '{0} entries added by Livy': 'Livy 新增了 {0} 筆紀錄',
 }

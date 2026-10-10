@@ -1950,4 +1950,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Griler aydınlık modda daha koyu görünür, düğmeler kapalıymış gibi durmasın diye.',
   'custom color picker': 'kendi renk özel renk seçici',
   'Signed in from another tab. Your workout came along, keep going here.': 'Başka bir sekmede giriş yapıldı. Antrenmanın da geldi, buradan devam et.',
+  '1 entry added by Livy': 'Livy 1 kayıt ekledi',
+  '{0} entries added by Livy': 'Livy {0} kayıt ekledi',
 }

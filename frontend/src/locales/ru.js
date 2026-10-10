@@ -1954,4 +1954,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Серые оттенки в светлой теме темнее, чтобы кнопки не казались выключенными.',
   'custom color picker': 'свой цвет пользовательский палитра выбор цвета',
   'Signed in from another tab. Your workout came along, keep going here.': 'Вход выполнен в другой вкладке. Тренировка сохранилась, продолжай здесь.',
+  '1 entry added by Livy': '1 запись добавлена Livy',
+  '{0} entries added by Livy': { one: '{0} запись добавлена Livy', few: '{0} записи добавлены Livy', many: '{0} записей добавлено Livy' },
 }

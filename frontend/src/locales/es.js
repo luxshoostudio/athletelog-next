@@ -1950,4 +1950,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Los grises se ven más oscuros en modo claro, para que los botones no parezcan apagados.',
   'custom color picker': 'color propio personalizado selector de color',
   'Signed in from another tab. Your workout came along, keep going here.': 'Sesión iniciada en otra pestaña. Tu entreno vino contigo, sigue aquí.',
+  '1 entry added by Livy': '1 entrada añadida por Livy',
+  '{0} entries added by Livy': '{0} entradas añadidas por Livy',
 }

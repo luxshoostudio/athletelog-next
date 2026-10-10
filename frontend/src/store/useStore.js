@@ -15,6 +15,7 @@ import { pendingRefCount, settleMedia, loadPending } from '../lib/media-owed.js'
 import { referencedHashes } from '../lib/media-refs.js'
 import { mediaStore, mediaStoreInUse } from '../lib/media-store.js'
 import { countChanges, syncFingerprint } from '../lib/sync-changes.js'
+import { applyLivyItems, livyNoticeIds, undoLivyIds } from '../lib/livy.js'
 import { saveWorkoutEdit, deleteEditedWorkout } from '../lib/session-edit.js'
 import { appBase } from '../lib/app-base.js'
 import { linkTokenFromSearch, stripLinkFromUrl } from '../lib/device-link.js'
@@ -289,6 +290,7 @@ export const useStore = create((set, get) => {
   let pushing = null       // the PUT in flight, so a second push waits for it instead of racing it
   let pushAgain = false    // a push asked for while one was in flight — run once more after it
   let pulling = null       // the GET in flight, so two resume signals make one request
+  let livyPull = null      // one inbox read at a time
   let configFetch = null   // the /api/config in flight, so two callers make one request
   let pushPending = false  // a change made before boot's pull — pushed once boot is through
   let forceNext = false    // the next push replaces the server copy outright (reset)
@@ -619,9 +621,13 @@ export const useStore = create((set, get) => {
     const { base } = metaOf()
     if (!base || owes()) return get().pullState()
     try {
-      const { rev, wid } = await api('/api/data/rev')
+      const body = await api('/api/data/rev')
+      const { rev, wid } = body || {}
       if (rev !== base.rev || (base.wid && wid && wid !== base.wid)) return get().pullState()
-      confirmed(get().S)   // nothing moved on either side
+      // Pending Livy entries do not move the profile revision. The rev answer names them only
+      // when the inbox is non-empty, and the copy in hand is already what the server has.
+      if (body?.livy) await get().pullLivyInbox()
+      if (!owes()) confirmed(get().S)   // nothing moved on either side
     } catch (e) {
       if (isNetworkError(e) || refused(e)) failed(e)
       else return get().pullState()   // a server that lacks the route (older API) — the full pull knows the old protocol
@@ -1276,6 +1282,17 @@ export const useStore = create((set, get) => {
   const sync0 = { offline: false, pending: storedOwed(), auth: false, lastError: null, lastSynced: (() => { try { return +localStorage.getItem(SYNCED_AT_KEY) || 0 } catch { return 0 } })(), server: serverBase(), held: adoptHold }
   sync0.status = statusOf(sync0, user0)
 
+  // Ids the inbox can forget: the ones just copied in, and the ones already logged or undone.
+  // A failed ack leaves them pending; the next read applies nothing new and tries again.
+  const ackLivy = async (result) => {
+    const ids = [
+      ...(result?.added || []).map(a => a.id),
+      ...(result?.skipped || []).filter(s => s && s.reason === 'duplicate' && s.id).map(s => s.id),
+    ]
+    if (!ids.length || !get().user) return
+    try { await api('/api/livy/inbox/ack', { method: 'POST', body: JSON.stringify({ ids }) }) } catch { /* next poll */ }
+  }
+
   return {
     S: S0,
     user: user0,
@@ -1578,6 +1595,7 @@ export const useStore = create((set, get) => {
       if (adoptHold) return   // as pushState: adoptProfile reads the server itself
       if (pulling) return pulling
       pulling = (async () => {
+        let inbox = null
         try {
           if (pushTm) { clearTimeout(pushTm); pushTm = null; await get().pushState() }
           else if (pushing) await pushing
@@ -1585,6 +1603,7 @@ export const useStore = create((set, get) => {
           lastCheck = Date.now()
           reached()
           const { state, rev } = res
+          inbox = Array.isArray(res?.inbox) ? res.inbox : null
           const S = get().S
           const { base, owed } = metaOf()
           // Owed to the server: a push that failed, or a change made while boot was still pulling.
@@ -1625,10 +1644,59 @@ export const useStore = create((set, get) => {
           mergeInto(S, state, rev)
           pushPending = false
           await get().pushState()
-        } catch (e) { failed(e) /* keep local; the poll retries */ }
-        finally { pulling = null }
+        } catch (e) { failed(e); inbox = null /* keep local; the poll retries */ }
+        finally {
+          pulling = null
+          // After the merge, not instead of it: Livy's rows are appended, never written over
+          // the food or workouts this pull just settled.
+          if (inbox?.length && get().user && !adoptHold) {
+            const result = get().applyLivyInbox(inbox)
+            ackLivy(result)
+          }
+        }
       })()
       return pulling
+    },
+
+    // Copy inbox rows into this profile. Nothing is written when every id is already here or
+    // was undone. The debounced push that follows is the same one a hand-logged entry uses.
+    applyLivyInbox(items) {
+      if (!Array.isArray(items) || !items.length) return { added: [], skipped: [] }
+      const preview = applyLivyItems(clone(get().S), items)
+      if (!preview.added.length) return preview
+      let result = preview
+      get().update(S => { result = applyLivyItems(S, items) })
+      return result
+    },
+    dismissLivyNotice() {
+      const ids = livyNoticeIds(get().S)
+      if (!ids.length) return
+      get().update(S => {
+        const have = new Set(Array.isArray(S.livyNotified) ? S.livyNotified.filter(x => typeof x === 'string') : [])
+        for (const id of ids) have.add(id)
+        S.livyNotified = [...have].slice(-500)
+      })
+    },
+    undoLivyNotice() {
+      const ids = livyNoticeIds(get().S)
+      if (!ids.length) return { removed: [] }
+      let removed = []
+      get().update(S => { removed = undoLivyIds(S, ids).removed })
+      return { removed }
+    },
+    async pullLivyInbox() {
+      if (!get().user || adoptHold) return
+      if (livyPull) return livyPull
+      livyPull = (async () => {
+        try {
+          const res = await api('/api/livy/inbox')
+          const items = Array.isArray(res?.items) ? res.items : []
+          const result = get().applyLivyInbox(items)
+          await ackLivy(result)
+        } catch { /* the next rev check tries again */ }
+        finally { livyPull = null }
+      })()
+      return livyPull
     },
 
     // "Sync now": what is waiting goes, the server's copy is checked, and the answer is the
