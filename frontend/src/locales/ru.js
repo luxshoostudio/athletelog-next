@@ -1610,6 +1610,7 @@ export default {
   'QR code': 'QR-код',
   'Delete weigh-in': 'Удалить взвешивание',
   'Green': 'Зелёный',
+  'Forest': 'Лес',
   'Blue': 'Синий',
   'Orange': 'Оранжевый',
   'Purple': 'Фиолетовый',
