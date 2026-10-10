@@ -3,7 +3,7 @@
 // Stored as two synced settings: `accent` names the choice ('lime', 'sky', … or 'custom') and
 // `accentCustom` keeps the user's own colour as '#rrggbb', also while a preset is picked, so
 // going back to it brings the same colour back. An app from before this knows no 'custom' and
-// draws its default green (App.jsx falls back on any key it does not know), and leaves
+// draws its default (App.jsx falls back on any key it does not know), and leaves
 // `accentCustom` alone like any other key it does not read.
 //
 // Nothing here trusts the stored value: it comes from other devices, backups and the server, and
@@ -16,7 +16,7 @@
 // A grey goes further, so it never looks like a switched-off button (THEMES below, accent.test.js).
 import { ACCENTS, ACCENT_INK } from './format.js'
 
-export const DEFAULT_ACCENT = 'lime'
+export const DEFAULT_ACCENT = 'forest'
 export const CUSTOM = 'custom'
 
 const HEX = /^#[0-9a-f]{6}$/i
@@ -98,8 +98,10 @@ export function inkOn(hex) {
 // --label-2 makes every button look switched off. A grey goes further: to text contrast (4.5:1)
 // on the theme, and at least 2:1 away from --label-2.
 export const THEMES = {
-  dark: { bgs: ['#000000', '#1c1c1e'], min: 3, toward: '#ffffff', label2: ['#8d8d93', '#98989f'] },
-  light: { bgs: ['#f2f2f7', '#ffffff'], min: 3, toward: '#000000', label2: ['#85858b', '#8a8a8e'] },
+  // Page and card fills from index.css, and --label-2 laid on each. Forest dark is a green-black,
+  // not pure black; Forest light is the warm page, not the old grey.
+  dark: { bgs: ['#121a16', '#1c2621'], min: 3, toward: '#ffffff', label2: ['#9a9f9c', '#9a9f9c'] },
+  light: { bgs: ['#f7f5ef', '#ffffff'], min: 3, toward: '#000000', label2: ['#5e6862', '#5e6862'] },
 }
 // Below this HSL saturation a colour counts as a grey (white, black, #808080, near-whites).
 export const GREY_SAT = 0.25

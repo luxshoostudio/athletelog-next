@@ -1654,6 +1654,7 @@ export default {
   'QR code': 'QR 코드',
   'Delete weigh-in': '체중 기록 삭제',
   'Green': '초록',
+  'Forest': '숲',
   'Blue': '파랑',
   'Orange': '주황',
   'Purple': '보라',

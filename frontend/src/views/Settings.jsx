@@ -400,7 +400,7 @@ export default function Settings({ page = null, find = null, via = null }) {
   const layout = ['list', 'compact'].includes(S.workoutView) ? S.workoutView : 'cards'
   const layoutLabel = { cards: t('Cards'), list: t('List'), compact: t('Compact') }[layout]
   const activeProfile = (S.equipProfiles || []).find(p => p.id === S.activeEquipId)
-  const themeLabel = { dark: t('Dark'), light: t('Light'), system: t('System') }[S.theme || 'dark'] || t('Dark')
+  const themeLabel = { dark: t('Dark'), light: t('Light'), system: t('System') }[S.theme || 'light'] || t('Light')
   // The value a root row shows, so most questions are answered without opening the page.
   const preview = {
     workout: () => (S.restSec > 0 ? t('{0} rest', fmtRest(S.restSec)) : t('No rest timer')) + ' · ' + layoutLabel,
@@ -695,7 +695,7 @@ export default function Settings({ page = null, find = null, via = null }) {
               { value: 'light', icon: 'sun', label: t('Light') },
               { value: 'system', icon: 'gear', label: t('System') },
             ]}
-            value={S.theme || 'dark'}
+            value={S.theme || 'light'}
             onChange={v => update(s => { s.theme = v })}
           />
         </Row>
@@ -1186,7 +1186,7 @@ function AccentSwatches({ S, update }) {
   // The input is not controlled (React would put the saved colour back after every drag step);
   // a colour changed elsewhere (sync, another tab) is put in by hand.
   useEffect(() => {
-    if (!pending.current && inputRef.current) inputRef.current.value = own || '#30d158'
+    if (!pending.current && inputRef.current) inputRef.current.value = own || ACCENTS.forest
   }, [own])
   const ownLabel = t('Your own color')
   const grey = own && isGrey(own)
@@ -1204,7 +1204,7 @@ function AccentSwatches({ S, update }) {
         ? <button className="swatch swatch-own" style={{ background: own }} onClick={() => pickOwn(own)} aria-label={ownLabel} />
         : <span className={'swatch swatch-own' + (own ? ' on' : ' unset')} style={own ? { background: own, color: inkOn(own) } : undefined}>
           {own ? <Icon name="pencil" /> : <Icon name="plus" />}
-          <input ref={inputRef} type="color" className="swatch-input" defaultValue={own || '#30d158'}
+          <input ref={inputRef} type="color" className="swatch-input" defaultValue={own || ACCENTS.forest}
             onChange={e => preview(e.target.value)}
             aria-label={own ? t('Change your own color') : t('Pick your own color')} />
         </span>}

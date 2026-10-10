@@ -25,22 +25,40 @@
 .home-food-totals i { font-size:.68rem; font-style:normal; text-transform:uppercase; letter-spacing:.08em; color:var(--label-2); }
 .food-page { padding-bottom:112px; }
 .food-summary { display:grid; gap:15px; }
-.food-date { justify-self:start; width:auto; font:inherit; font-weight:600; }
+.food-date {
+  justify-self:start; width:auto; max-width:100%; min-width:0;
+  font:inherit; font-weight:600;
+  border:1px solid var(--line); border-radius:var(--r); padding:10px 12px;
+  background:var(--surface-2); color:var(--label); box-sizing:border-box;
+}
 .food-macro { display:grid; gap:7px; }
 .food-progress { height:7px; border-radius:999px; overflow:hidden; background:var(--surface-3); }
+/* Light track is white, not the warm control fill: the protein orange is 3:1 on white and
+   short of that on the page and on any grey track. The hairline keeps an empty bar visible. */
+:root[data-theme="light"] .food-progress { background:#ffffff; box-shadow:inset 0 0 0 1px var(--line); }
 .food-progress i { display:block; height:100%; border-radius:inherit; background:var(--protein); }
-.food-macro.cal .food-progress i { background:var(--orange); }
-.food-macro.fiber .food-progress i { background:var(--purple); }
+.food-macro.cal .food-progress i,.food-macro.fiber .food-progress i { background:var(--btn); }
 .food-macro.carbs .food-progress i { background:var(--green); }
 .food-macro.fat .food-progress i { background:var(--fat); }
-.food-macro.protein b { color:var(--protein); }
 .food-search-row { display:grid; grid-template-columns:auto minmax(0,1fr) 38px 38px; gap:8px; align-items:center; }
 .food-search-row > svg { color:var(--label-3); }
-.food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
+.food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; max-width:100%; border:1px solid var(--line); border-radius:var(--r); padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
+/* Single-line search and barcode fields are pills, like the old add row. Higher specificity
+   than the shared 12px radius so a later input reset cannot square them off again. */
+.food-page .food-search-row input,.food-page .food-scan input { border-radius:999px; }
 .food-scan { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:12px; }
 .food-results { display:grid; margin-top:10px; border-top:1px solid var(--line); }
 .food-results button,.food-empty-add { padding:12px 2px; border:0; border-bottom:1px solid var(--line); background:none; color:inherit; display:flex; justify-content:space-between; gap:12px; text-align:start; font:inherit; }
 .food-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0 16px; }
+/* The goal labels are grid items. Without min-width:0 a native number field's ~20ch
+   min-content size stretches the right column past the card and off a 390px screen. */
+.food-form-grid > * { min-width:0; }
+.food-form-grid label { display:grid; gap:5px; color:var(--label-2); font-size:.78rem; }
+.food-form-grid input {
+  width:100%; min-width:0; max-width:100%; box-sizing:border-box;
+  border:1px solid var(--line); border-radius:var(--r); padding:10px 12px;
+  background:var(--surface-2); color:var(--label); font:inherit;
+}
 .food-editor label { min-width:0; display:grid; gap:5px; color:var(--label-2); font-size:.78rem; }
 .food-chips { display:flex; gap:7px; overflow-x:auto; padding:4px 0; scrollbar-width:none; }
 .food-chips button { flex:0 0 auto; border:1px solid var(--line); background:var(--surface-2); color:var(--label); border-radius:999px; padding:8px 12px; font:inherit; font-size:.82rem; }
@@ -59,44 +77,48 @@
 @media(max-width:430px){.home-food-totals b{font-size:1.2rem}.food-entry-main{grid-template-columns:40px minmax(0,1fr)}.food-entry-main>span:last-child{grid-column:2;white-space:normal}}
 
 /* ---------------------------------------------------------------- tokens -- */
+/* Dark lives on :root so every variable has a value before the theme attribute.
+   index.html sets data-theme before first paint; a new profile is light (see DEF).
+   Forest pairs below are locked in lib/forest-theme.test.js (WCAG AA). */
 :root {
-  /* surfaces — dark is the default */
-  --bg:        #000000;
-  --bg-el:     #0e0e10;   /* elevated backdrop (sheets, bars) */
-  --surface:   #1c1c1e;   /* card / grouped-list fill */
-  --surface-2: #2c2c2e;   /* pressed + nested fill */
-  --surface-3: #3a3a3c;   /* controls (segmented track, switch off) */
+  /* surfaces — Forest dark: a deep green-black, cards a step up */
+  --bg:        #121a16;
+  --bg-el:     #161e1a;   /* elevated backdrop (sheets, bars) */
+  --surface:   #1c2621;   /* card / grouped-list fill */
+  --surface-2: #24302a;   /* pressed + nested fill */
+  --surface-3: #2c3a33;   /* controls (segmented track, switch off) */
 
-  /* text */
-  --label:     #ffffff;
-  --label-2:   rgba(235,235,245,.60);
-  --label-3:   rgba(235,235,245,.32);
-  --label-4:   rgba(235,235,245,.18);
+  /* text — off-white, then two greens-turned-grey that still clear 4.5:1 on a card */
+  --label:     #f4f7f5;
+  --label-2:   #9a9f9c;
+  --label-3:   #8e9491;
+  --label-4:   rgba(244,247,245,.28);
 
   /* lines */
-  --sep:       rgba(84,84,88,.60);
-  --sep-op:    rgba(84,84,88,.34);   /* for edges sitting over blur */
+  --sep:       rgba(111,165,143,.32);
+  --sep-op:    rgba(111,165,143,.20);   /* for edges sitting over blur */
+  --line:      #4f7666;   /* input borders: 3:1 on the page, the card and the bar */
   --hair:      .5px;
 
-  /* system palette (iOS dark values) */
+  /* system palette (iOS dark values) — status colours, not the Forest accent */
   --blue:#0a84ff; --green:#30d158; --red:#ff453a; --orange:#ff9f0a;
   --yellow:#ffd60a; --teal:#40c8e0; --indigo:#5e5ce6; --pink:#ff375f;
   --purple:#bf5af2; --mint:#63e6e2; --brown:#ac8e68; --grey:#8e8e93;
 
-  /* accent (per-account, synced) */
-  --acc:  var(--green);
-  --acc-2:#248a3d;
-  --on-acc:#000000;
+  /* accent (per-account, synced). Forest is the default; a picked preset overrides below. */
+  --acc:  #6fa58f;
+  --acc-2:#62917e;
+  --on-acc:#10201a;
   --acc-soft: color-mix(in srgb, var(--acc) 16%, transparent);
   --acc-line: color-mix(in srgb, var(--acc) 38%, transparent);
 
-  /* Protein and progress stay pink; primary actions stay blue. Dark uses the lighter
-     system pink and blue so both still read on a black page. Pressed blue keeps white text. */
-  --protein: var(--pink);
+  /* Protein progress is the lighter orange. Buttons are the lighter green with dark ink:
+     white on #6fa58f is 2.8:1. The pressed green still clears 4.5:1 with that ink. */
+  --protein: #f0a060;
   --fat: #64d2ff;
-  --btn: var(--blue);
-  --btn-pressed: #0062cc;
-  --btn-ink: #ffffff;
+  --btn: #6fa58f;
+  --btn-pressed: #62917e;
+  --btn-ink: #10201a;
   --card-shadow: none;
 
   /* geometry */
@@ -121,31 +143,42 @@
 }
 
 :root[data-theme="light"] {
-  --bg:        #f2f2f7;
-  --bg-el:     #f7f7fa;
+  --bg:        #f7f5ef;
+  --bg-el:     #f7f5ef;
   --surface:   #ffffff;
-  --surface-2: #ececef;
-  --surface-3: #e3e3e8;
+  --surface-2: #efece3;
+  --surface-3: #e5e0d4;
 
-  --label:     #1c1c1e;
-  --label-2:   #6e6e73;
-  --label-3:   #aeaeb2;
-  --label-4:   rgba(60,60,67,.16);
+  --label:     #1f2a24;
+  --label-2:   #5e6862;
+  --label-3:   #666d67;
+  --label-4:   rgba(31,42,36,.28);
 
-  --sep:       rgba(60,60,67,.29);
-  --sep-op:    rgba(60,60,67,.20);
+  --sep:       rgba(31,42,36,.16);
+  --sep-op:    rgba(31,42,36,.10);
+  --line:      #948c82;
 
   --blue:#007aff; --green:#34c759; --red:#ff3b30; --orange:#ff9500;
   --yellow:#ffcc00; --teal:#30b0c7; --indigo:#5856d6; --pink:#ff2d55;
   --purple:#af52de; --mint:#00c7be; --brown:#a2845e; --grey:#8e8e93;
   --fat:#5ac8fa;
-  --btn-pressed:#0062cc;
-  --card-shadow: 0 .5px 0 rgba(0,0,0,.08);
-  --acc-2:#248a3d;
+  /* Protein orange is for the ring and the bars only — as 17px text it is 3:1, under AA.
+     Buttons and the active tab are the deep green, with white ink (7.5:1, 9.8:1 pressed). */
+  --protein:#e07a2f;
+  --btn:#2f5d50;
+  --btn-pressed:#264a40;
+  --btn-ink:#ffffff;
+  --card-shadow: 0 .5px 0 rgba(31,42,36,.10);
+  --acc:#2f5d50;
+  --acc-2:#264a40;
   --on-acc:#ffffff;
 }
 
-/* accents — Apple's system colours, so a recolour never looks off-system */
+/* accents — Apple's system colours, so a recolour never looks off-system.
+   Forest is the default and has its own dark and light shade (white ink fails on the
+   dark green). These two rules sit above the presets so a picked colour still wins. */
+:root[data-accent="forest"] { --acc:#6fa58f; --acc-2:#62917e; --on-acc:#10201a }
+:root[data-theme="light"][data-accent="forest"] { --acc:#2f5d50; --acc-2:#264a40; --on-acc:#ffffff }
 :root[data-accent="lime"]  { --acc:var(--green);  --acc-2:#248a3d; --on-acc:#000 }
 :root[data-accent="sky"]   { --acc:var(--blue);   --acc-2:#0060df; --on-acc:#fff }
 :root[data-accent="orange"]{ --acc:var(--orange); --acc-2:#c76b00; --on-acc:#000 }
@@ -157,7 +190,7 @@
 /* Label colour on a filled accent button is picked per accent by measured contrast,
    not by taste. Button text is 17px/600, so the AA bar is 3:1 (large text). White on
    the light-theme green is 2.22:1 and on teal 2.57:1 — both fail, and green is the
-   DEFAULT accent, so every primary button in light mode was failing. Black scores
+   DEFAULT accent until Forest, so every primary button in light mode was failing. Black scores
    9.46 / 8.16 there. Blue, purple, pink and red keep white (3.5–4.1:1), which both
    passes and matches the platform convention. */
 :root[data-theme="light"][data-accent="lime"],
@@ -175,7 +208,7 @@ html{
 }
 body{
   background:var(--bg);color:var(--label);
-  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI',Roboto,system-ui,sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,sans-serif;
   font-size:17px;line-height:1.29;letter-spacing:-.01em;
   min-height:100vh;min-height:100dvh;overscroll-behavior-y:none;overflow-x:clip;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
@@ -184,6 +217,11 @@ body{
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;letter-spacing:inherit}
 input,select,textarea{font:inherit;color:var(--label);letter-spacing:inherit}
+/* Text controls share the 12px button radius. Checkboxes, radios, sliders, colour swatches
+   and file pickers keep their own shape. :not() with a list counts as one attribute, so a
+   search pill or a stepper can still override this. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"]),
+select,textarea{border-radius:var(--r);max-width:100%;min-width:0}
 img{max-width:100%}
 a{color:var(--acc);text-decoration:none}
 :focus{outline:none}
@@ -450,7 +488,7 @@ h4.sec{
   -webkit-backdrop-filter:saturate(180%) blur(10px);backdrop-filter:saturate(180%) blur(10px);
   border-top:var(--hair) solid var(--sep-op);
 }
-:root[data-theme="light"] #tabbar{background:rgba(249,249,251,.94)}
+:root[data-theme="light"] #tabbar{background:rgba(247,245,239,.94)}
 #tabbar button{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
   color:var(--label-3);font-size:10px;font-weight:500;letter-spacing:.005em;padding-top:3px;
@@ -462,7 +500,7 @@ h4.sec{
    fade on the <svg> instead of in the stroke colour flattens the icon first and
    fades it as one shape — and it does that for every icon, not just this one. */
 #tabbar button .icn{font-size:25px;--icon-stroke:1.65;color:var(--label)}
-#tabbar button.on{color:var(--protein)}
+#tabbar button.on{color:var(--btn)}
 #tabbar button.on .icn{--icon-stroke:2;color:inherit;opacity:1}
 /* A connection problem while the banner is switched off (Settings → Show connection status):
    a dot on the Home tab and on the Settings gear. */
@@ -506,7 +544,7 @@ h4.sec{
    fully opaque instead. Keep this in sync with the rules above. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   #tabbar{background:var(--bg-el)}
-  :root[data-theme="light"] #tabbar{background:#f9f9fb}
+  :root[data-theme="light"] #tabbar{background:#f7f5ef}
   #timer{background:var(--surface)}
   #toast{background:var(--surface-2)}
 }
@@ -665,8 +703,8 @@ body.chips-dragging *{cursor:inherit}
   position:absolute;inset-inline-start:11px;font-size:16px;color:var(--label-3);
   pointer-events:none;--icon-stroke:2.1;z-index:1;
 }
-.searchf .field{padding-inline-start:35px;padding-inline-end:36px;background:var(--surface-2);border-radius:10px}
-:root[data-theme="light"] .searchf .field{background:rgba(118,118,128,.12)}
+.searchf .field{padding-inline-start:35px;padding-inline-end:36px;background:var(--surface-2);border-radius:999px}
+:root[data-theme="light"] .searchf .field{background:var(--surface-3)}
 .searchf .clear{
   position:absolute;inset-inline-end:8px;width:22px;height:22px;border-radius:50%;
   background:var(--label-3);color:var(--bg);display:flex;align-items:center;
@@ -674,8 +712,8 @@ body.chips-dragging *{cursor:inherit}
 }
 /* legacy .search wrapper */
 .search{position:relative}
-.search .input{padding-inline-start:35px;background:var(--surface-2);border-radius:10px}
-:root[data-theme="light"] .search .input{background:rgba(118,118,128,.12)}
+.search .input{padding-inline-start:35px;background:var(--surface-2);border-radius:999px}
+:root[data-theme="light"] .search .input{background:var(--surface-3)}
 .search>svg{
   position:absolute;inset-inline-start:11px;top:50%;transform:translateY(-50%);z-index:1;
   width:16px;height:16px;stroke:var(--label-3);fill:none;stroke-width:2.1;stroke-linecap:round;
@@ -733,7 +771,7 @@ body.chips-dragging *{cursor:inherit}
   background:var(--surface-3);border-radius:9px;padding:2px;isolation:isolate;
 }
 .seg>button{flex:1 1 0;min-width:0}
-:root[data-theme="light"] .seg{background:rgba(118,118,128,.12)}
+:root[data-theme="light"] .seg{background:var(--surface-3)}
 .seg-sel{
   position:absolute;z-index:0;top:2px;bottom:2px;inset-inline-start:2px;
   width:calc((100% - 4px)/var(--n));
@@ -771,7 +809,7 @@ body.chips-dragging *{cursor:inherit}
 
 /* native time input, restyled to sit in a row like a value label */
 .timef{
-  background:var(--surface-2);border:none;border-radius:8px;padding:6px 10px;
+  background:var(--surface-2);border:none;border-radius:var(--r);padding:6px 10px;
   font-size:16px;color:var(--label);outline:none;font-variant-numeric:tabular-nums;
 }
 /* A date or time field is as wide as the browser draws it and will not give way, and neither will

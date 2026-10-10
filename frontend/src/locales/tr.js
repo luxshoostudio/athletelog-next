@@ -1654,6 +1654,7 @@ export default {
   'QR code': 'QR kodu',
   'Delete weigh-in': 'Tartıyı sil',
   'Green': 'Yeşil',
+  'Forest': 'Orman',
   'Blue': 'Mavi',
   'Orange': 'Turuncu',
   'Purple': 'Mor',

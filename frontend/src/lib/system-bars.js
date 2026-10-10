@@ -1,6 +1,6 @@
 // Android app: the status bar and the navigation bar draw on top of the page (Android 15, edge to
 // edge), white unless the native side is told the page is light. On the light theme the clock and
-// the battery all but vanished on #f2f2f7. App.jsx calls this with every theme it resolves to; the
+// the battery all but vanished on #f7f5ef. App.jsx calls this with every theme it resolves to; the
 // SystemBars plugin (SystemBarsPlugin.java) flips the icons dark on light and back.
 import { isAndroid } from './mobile.js'
 

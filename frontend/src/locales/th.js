@@ -1665,6 +1665,7 @@ export default {
   'QR code': 'คิวอาร์โค้ด',
   'Delete weigh-in': 'ลบการชั่งน้ำหนัก',
   'Green': 'เขียว',
+  'Forest': 'ป่า',
   'Blue': 'น้ำเงิน',
   'Orange': 'ส้ม',
   'Purple': 'ม่วง',

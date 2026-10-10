@@ -1654,6 +1654,7 @@ export default {
   'QR code': 'QR कोड',
   'Delete weigh-in': 'वज़न प्रविष्टि हटाएँ',
   'Green': 'हरा',
+  'Forest': 'वन',
   'Blue': 'नीला',
   'Orange': 'नारंगी',
   'Purple': 'बैंगनी',

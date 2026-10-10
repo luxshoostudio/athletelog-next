@@ -24,8 +24,8 @@ describe('sanitizeAccent', () => {
   })
   it('keeps an unknown preset word (a newer app’s) but not junk', () => {
     expect(sanitizeAccent({ accent: 'mint' }).accent).toBe('mint')
-    expect(sanitizeAccent({ accent: '"><script>' }).accent).toBe('lime')
-    expect(sanitizeAccent({ accent: 42 }).accent).toBe('lime')
+    expect(sanitizeAccent({ accent: '"><script>' }).accent).toBe('forest')
+    expect(sanitizeAccent({ accent: 42 }).accent).toBe('forest')
     expect(sanitizeAccent({ theme: 'dark' })).toEqual({ theme: 'dark' })
   })
 })
@@ -33,11 +33,11 @@ describe('sanitizeAccent', () => {
 describe('accentKey / accentValue', () => {
   it('draws a preset, the own colour, or the default', () => {
     expect(accentKey({ accent: 'sky' })).toBe('sky')
-    expect(accentKey({})).toBe('lime')
-    expect(accentKey({ accent: 'mint' })).toBe('lime')
-    expect(accentKey({ accent: 'toString' })).toBe('lime')
-    expect(accentKey({ accent: 'custom' })).toBe('lime')
-    expect(accentKey({ accent: 'custom', accentCustom: 'nope' })).toBe('lime')
+    expect(accentKey({})).toBe('forest')
+    expect(accentKey({ accent: 'mint' })).toBe('forest')
+    expect(accentKey({ accent: 'toString' })).toBe('forest')
+    expect(accentKey({ accent: 'custom' })).toBe('forest')
+    expect(accentKey({ accent: 'custom', accentCustom: 'nope' })).toBe('forest')
     expect(accentValue({ accent: 'custom', accentCustom: '#123ABC' })).toBe('#123abc')
     // the own colour is kept while a preset is the accent
     expect(accentValue({ accent: 'red', accentCustom: '#123abc' })).toBe('red')
@@ -116,8 +116,8 @@ describe('readable on the theme', () => {
     for (const bg of THEMES.light.bgs) expect(contrast(pale, bg)).toBeGreaterThanOrEqual(THEMES.light.min)
     expect(readableIn('#fff8e1', 'dark')).toBe('#fff8e1')
     // the extremes still end somewhere readable
-    expect(contrast(readableIn('#000000', 'dark'), '#1c1c1e')).toBeGreaterThanOrEqual(3)
-    expect(contrast(readableIn('#ffffff', 'light'), '#f2f2f7')).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(readableIn('#000000', 'dark'), '#1c2621')).toBeGreaterThanOrEqual(3)
+    expect(contrast(readableIn('#ffffff', 'light'), '#f7f5ef')).toBeGreaterThanOrEqual(4.5)
   })
   it('a colour with a hue is never adjusted for both themes', () => {
     for (let i = 0; i < 400; i++) {
@@ -175,7 +175,7 @@ describe('CSS for the own colour', () => {
     expect(el.style.getPropertyValue('--acc')).toBe('')
     expect(el.style.getPropertyValue('--knob-ring')).toBe('')
     applyAccent(el, 'url(x)', 'dark')
-    expect(el.dataset.accent).toBe('lime')
+    expect(el.dataset.accent).toBe('forest')
   })
 })
 
@@ -183,8 +183,8 @@ describe('the native countdown colours', () => {
   it('takes a preset key or the own colour', () => {
     expect(accentPair('sky')).toEqual({ accent: ACCENTS.sky, ink: '#ffffff' })
     expect(accentPair('#ffd60a')).toEqual({ accent: '#ffd60a', ink: '#000000' })
-    expect(accentPair('nonsense')).toEqual({ accent: ACCENTS.lime, ink: '#000000' })
-    expect(accentPair(undefined)).toEqual({ accent: ACCENTS.lime, ink: '#000000' })
+    expect(accentPair('nonsense')).toEqual({ accent: ACCENTS.forest, ink: '#ffffff' })
+    expect(accentPair(undefined)).toEqual({ accent: ACCENTS.forest, ink: '#ffffff' })
   })
 })
 
@@ -215,7 +215,7 @@ describe('sync with an app from before own colours', () => {
     const theirs = { ...base, _ts: 20, accent: 'custom', accentCustom: '#fff;}*{color:red' }
     const out = mergeStates(mine, theirs)
     expect('accentCustom' in out).toBe(false)
-    expect(accentValue(out)).toBe('lime')
+    expect(accentValue(out)).toBe('forest')
   })
 })
 

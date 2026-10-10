@@ -2,7 +2,7 @@
   "appId": "studio.luxshoo.athletelog.next",
   "appName": "Lux Log",
   "webDir": "dist",
-  "backgroundColor": "#0c0e12",
+  "backgroundColor": "#f7f5ef",
   "android": {
     "allowMixedContent": false
   }

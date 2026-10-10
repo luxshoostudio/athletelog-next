@@ -4,19 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <script>
-  // Set direction before first paint so an Arabic profile never flashes as LTR.
-  // The app re-applies this on every language change (lib/i18n.js setLang).
-  // i18n-core RTL_LANGS is the runtime source of truth — keep this list in sync.
+  // Set direction and theme before first paint so an Arabic profile never flashes as LTR
+  // and a new profile never flashes the dark tokens. The app re-applies both (lib/i18n.js
+  // setLang, App.jsx applyPrefs). i18n-core RTL_LANGS is the runtime source of truth.
   try {
     var s = JSON.parse(localStorage.getItem('gym_state_v1') || '{}');
     var l = s.lang || ((navigator.language || '').slice(0, 2) === 'ar' ? 'ar' : 'en');
     document.documentElement.lang = l;
     document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+    // A stored light or dark choice wins. System follows the phone. Anything else — a new
+    // profile, which has no theme yet — is light, even when the phone is in dark mode.
+    var darkOS = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = s.theme === 'dark' || s.theme === 'light' ? s.theme : (s.theme === 'system' && darkOS ? 'dark' : 'light');
+    document.documentElement.dataset.theme = theme;
+    if (typeof s.accent === 'string' && /^[a-z][a-z0-9-]{0,23}$/.test(s.accent) && s.accent !== 'custom')
+      document.documentElement.dataset.accent = s.accent;
   } catch (e) {}
 </script>
 <title>Lux Log</title>
 <meta name="description" content="Lux's local-first training and nutrition tracker">
-<meta name="theme-color" content="#0c0e12">
+<meta name="theme-color" content="#f7f5ef">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

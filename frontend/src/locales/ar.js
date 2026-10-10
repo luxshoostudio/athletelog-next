@@ -1700,6 +1700,7 @@ export default {
   'QR code': 'رمز QR',
   'Delete weigh-in': 'حذف الوزن المسجّل',
   'Green': 'أخضر',
+  'Forest': 'غابة',
   'Blue': 'أزرق',
   'Orange': 'برتقالي',
   'Purple': 'بنفسجي',
