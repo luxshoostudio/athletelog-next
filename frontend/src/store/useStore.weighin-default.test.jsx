@@ -7,7 +7,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../lib/api.js', () => ({ api: vi.fn() }))
 vi.mock('./useUI.js', () => ({ useUI: { getState: () => ({ toast: vi.fn() }) } }))
 
-import { freshState, DEF, restoredStateFor, restartedState, useStore } from './useStore.js'
+import { freshState, DEF, hasData, restoredStateFor, restartedState, useStore } from './useStore.js'
+
+describe('a fresh profile', () => {
+  it('starts empty: built-in presets are not user data', () => {
+    const fresh = freshState()
+    expect(fresh.customEx).toEqual([])
+    expect(hasData(fresh)).toBe(false)
+    expect(hasData({ ...fresh, customEx: [{ id: 'lux-running', n: 'running', preset: true, athleteLogMode: 'running' }] })).toBe(false)
+    expect(hasData({ ...fresh, customEx: [{ id: 'c1', n: 'sandbag carry', custom: true }] })).toBe(true)
+    expect(hasData({ ...fresh, foodEntries: [{ id: 'yogurt', name: 'yogurt' }] })).toBe(true)
+  })
+})
 
 describe('weigh-in default', () => {
   it('a fresh profile starts with the weigh-in off', () => {

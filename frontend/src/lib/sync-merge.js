@@ -29,6 +29,10 @@
  *     its neighbour there (unionByNeighbours); of an id that both have, the version
  *     edited last by its own `_ts` (stampRoutines), the newer copy's on a tie
  *   - bodyweight: union by day, the later-edited (`t`) entry of a day that both have
+ *   - foodEntries: union by id, field by field like a workout (stampEntry / mergeEntry), so a meal
+ *     logged on one device is not replaced by the other device's list. foodItems: key union, the
+ *     entry edited last by its own `_ts`. favoriteFoods: ordered set union, like favEx.
+ *     importBatches: set union, so a batch imported on one device stays imported on the other
  *   - favEx: ordered set union, the newer copy first
  *   - exWeights: union by exercise, the better `w` for that exercise — larger for an ordinary
  *     lift, smaller on an assistance machine (a PR logged on the other device must not be
@@ -72,7 +76,7 @@
  * device that came back online after any time away brought back every workout, routine, custom
  * exercise, weigh-in or favourite the other device had removed meanwhile.
  */
-import { beatsWeight } from './exercises.js'
+import { beatsWeight, isPresetExercise } from './exercises.js'
 import { bestWeightForEntry } from './history.js'
 import { convertStateUnit, convertBodyWeight } from './units.js'
 import { sanitizeAccent } from './accent.js'
@@ -393,11 +397,13 @@ const workoutTime = w => Number(w?._ts) || Number(w?.end) || Number(w?.start) ||
 
 // What a reset records of the entries it wiped (resetIds), by field: how an entry is named.
 const bodyweightKey = e => `${e?.d}|${e?.t ?? ''}`
+const foodKey = x => x?.id
 const RESET_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: bodyweightKey,
   gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  foodEntries: foodKey, favoriteFoods: x => x, importBatches: x => x,
 }
-const RESET_MAPS = ['exNotes', 'barWeights', 'balanceOverrides', 'loadKind', 'plates']
+const RESET_MAPS = ['exNotes', 'barWeights', 'balanceOverrides', 'loadKind', 'plates', 'foodItems']
 /** An entry's name in resetIds: a workout's id (or day and start), a weigh-in's day and time, … */
 export const entryKey = (field, x) => String(RESET_LISTS[field](x))
 // Per field, the most names a reset keeps — far more workouts than anyone logs, and a bound on
@@ -454,6 +460,10 @@ export function sinceReset(S, at, ids) {
     out.equipProfiles = []
     out.gymCards = []
     out.favEx = []
+    out.foodEntries = list(S.foodEntries).filter(e => e && after(Number(e._ts) || Number(e.createdAt) || 0))
+    out.favoriteFoods = []
+    out.importBatches = []
+    out.foodItems = {}
     out.exNotes = {}
     out.barWeights = {}
     for (const f of ['balanceOverrides', 'loadKind', 'plates']) {
@@ -492,6 +502,7 @@ export function sinceReset(S, at, ids) {
 const DEL_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: e => e?.d,
   gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  foodEntries: foodKey, favoriteFoods: x => x,
 }
 // When an entry was last edited, to hold against a removal. Entries with no time of their own
 // (favourites, and cards and profiles saved before they were stamped) count as older than any
@@ -499,6 +510,7 @@ const DEL_LISTS = {
 const DEL_TIME = {
   workouts: workoutTime, routines: x => Number(x?._ts) || 0, customEx: x => Number(x?._ts) || 0,
   bodyweight: e => Number(e?.t) || 0, gymCards: x => Number(x?._ts) || 0, equipProfiles: x => Number(x?._ts) || 0,
+  foodEntries: e => Number(e?._ts) || Number(e?.createdAt) || 0,
 }
 // Per field, the most stamps kept; past it the oldest go first.
 export const DELETED_MAX = 5000
@@ -542,7 +554,7 @@ export function stampDeletions(prev, next, now = Date.now()) {
     const had = new Set(before.filter(x => x != null).map(x => String(key(x))))
     for (const k of have) {
       if (had.has(k)) continue
-      if (k in m ? m[k] > 0 : f === 'favEx') { m[k] = -now; changed = true }
+      if (k in m ? m[k] > 0 : (f === 'favEx' || f === 'favoriteFoods')) { m[k] = -now; changed = true }
     }
     if (changed) { del[f] = capStamps(m); touched = true }
   }
@@ -606,6 +618,7 @@ const OWN_MERGE = new Set([
   '_ts', '_rev', '_wid', '_wids', '_unstamped', '_prior', 'active', 'unit', 'unitSet', 'resetAt', 'resetIds', 'deleted', 'edited', 'undone', 'routineOrder',
   'workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'bodyweight', 'favEx',
   'exWeights', 'balanceOverrides', 'loadKind', 'plates',
+  'foodEntries', 'foodItems', 'favoriteFoods', 'importBatches',
 ])
 // Stamped per key instead of whole: one day of the plan, one exercise's note or bar.
 const PER_KEY = new Set(['week', 'dayPlan', 'exNotes', 'barWeights'])
@@ -812,6 +825,20 @@ export function mergeStates(a0, b0, { prefer } = {}) {
   }
   out.bodyweight = mergeBodyweight(n.bodyweight, o.bodyweight).map(clone)
   if (list(n.favEx).length || list(o.favEx).length) out.favEx = [...new Set([...list(n.favEx), ...list(o.favEx)])]
+  // Food is a log, not a setting: both devices' entries stay, and an entry both edited keeps
+  // each field from the side that changed it last. `prefer` (sign-in) still unions ids and keeps
+  // the preferred side's version of an id both have, the way a workout does.
+  if (list(n.foodEntries).length || list(o.foodEntries).length) {
+    out.foodEntries = unionById(n.foodEntries, o.foodEntries, foodKey).map(clone)
+    if (!prefer) {
+      const other = new Map(list(o.foodEntries).filter(x => x?.id != null).map(x => [x.id, x]))
+      out.foodEntries = out.foodEntries.map(x => (x?.id != null && other.get(x.id) ? mergeEntry(x, other.get(x.id)) : x))
+    }
+    out.foodEntries.sort((a, b) => String(a?.date || '').localeCompare(String(b?.date || '')) || String(a?.time || '').localeCompare(String(b?.time || '')) || String(a?.id || '').localeCompare(String(b?.id || '')))
+  }
+  if (list(n.favoriteFoods).length || list(o.favoriteFoods).length) out.favoriteFoods = [...new Set([...list(n.favoriteFoods), ...list(o.favoriteFoods)])]
+  if (list(n.importBatches).length || list(o.importBatches).length) out.importBatches = [...new Set([...list(n.importBatches), ...list(o.importBatches)])]
+  if (n.foodItems || o.foodItems) out.foodItems = clone(mergeStampedMap(n.foodItems, o.foodItems, prefer))
   // What either device removed stays removed (the `deleted` section above). A workout taken out
   // this way leaves its exercises' kept loads to be read again, as an edit of it would: from the
   // merged history and from the deleting copy's own, which already let go of what it held.
@@ -944,7 +971,7 @@ export function stampReplace(next, others = [], now = Date.now()) {
   const known = {}
   for (const f of Object.keys(DEL_LISTS)) known[f] = others.flatMap(o => list(o?.[f])).filter(x => x != null)
   stampDeletions(known, next, now)
-  for (const f of ['workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards']) {
+  for (const f of ['workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'foodEntries']) {
     const versions = new Map()
     for (const o of others) for (const x of list(o?.[f])) if (x && typeof x === 'object' && x.id != null) versions.set(x.id, [...(versions.get(x.id) || []), x])
     for (const x of list(next[f])) {
@@ -992,7 +1019,7 @@ export function highestStamp(S) {
   see(S.resetAt)
   if (isMap(S.edited)) for (const v of Object.values(S.edited)) see(v)
   if (isMap(S.deleted)) for (const f of Object.values(S.deleted)) if (isMap(f)) for (const v of Object.values(f)) see(v)
-  for (const f of ['workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards']) {
+  for (const f of ['workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'foodEntries']) {
     for (const x of list(S[f])) {
       if (!x || typeof x !== 'object') continue
       see(x._ts)
@@ -1047,6 +1074,8 @@ export function stampChange(prev, next, wall = Date.now()) {
   stampCustomEx(prev?.customEx, next.customEx, now)
   stampEntries(prev?.equipProfiles, next.equipProfiles, now)
   stampEntries(prev?.gymCards, next.gymCards, now)
+  stampEntries(prev?.foodEntries, next.foodEntries, now)
+  stampFoodItems(prev, next, now)
   stampDeletions(prev, next, now)
   stampEdits(prev, next, now)
   return now
@@ -1088,8 +1117,24 @@ export function stampCustomEx(prev = [], next = [], now = Date.now()) {
   return next
 }
 
-/** stampCustomEx for any list of entries with ids: equipment profiles, gym cards. */
+/** stampCustomEx for any list of entries with ids: equipment profiles, gym cards, food entries. */
 export function stampEntries(prev = [], next = [], now = Date.now()) { return stampCustomEx(prev, next, now) }
+
+// A personal food's `_ts` is the edit time mergeStampedMap keeps. A key that did not change
+// keeps the stamp it had. Mutates `next.foodItems`.
+function stampFoodItems(prev, next, now) {
+  if (!isMap(next?.foodItems)) return
+  const before = isMap(prev?.foodItems) ? prev.foodItems : {}
+  for (const [k, v] of Object.entries(next.foodItems)) {
+    if (!isMap(v)) continue
+    const old = isMap(before[k]) ? before[k] : null
+    const rest = { ...v }; delete rest._ts
+    const oldRest = old ? { ...old } : null
+    if (oldRest) delete oldRest._ts
+    if (!old || !sameJSON(oldRest, rest)) v._ts = now
+    else if (old._ts) v._ts = old._ts
+  }
+}
 
 // What `local` holds that `server` does not: the workouts and weigh-ins a device logged while it
 // was signed out, and the custom exercises they use. Sign-in asks about these before the server's
@@ -1102,6 +1147,7 @@ export function localExtras(local, server) {
   const have = new Set(list(server?.workouts).map(workoutKey))
   const days = new Map(list(server?.bodyweight).filter(e => e && e.d != null).map(e => [e.d, e]))
   const ex = new Set(list(server?.customEx).map(e => e?.id))
+  const foodIds = new Set(list(server?.foodEntries).map(e => e?.id))
   const from = unitOf(local), to = unitOf(server)
   const differs = (mine, theirs) =>
     (Number(mine.t) || 0) > (Number(theirs.t) || 0) && Number(convertBodyWeight(mine.w, from, to)) !== Number(theirs.w)
@@ -1114,11 +1160,13 @@ export function localExtras(local, server) {
     .filter(([k, v]) => v != null && !(Array.isArray(v) && !v.length) && !(isMap(server?.[f]) && k in server[f])).length
   const setup = ['gymCards', 'equipProfiles'].reduce((n, f) => n + list(local?.[f]).filter(x => x && x.id != null && !ids(f).has(x.id)).length, 0) +
     keysNew('week') + keysNew('dayPlan') + keysNew('exNotes')
+  const food = list(local?.foodEntries).filter(e => e && e.id != null && !foodIds.has(e.id)).length
   return {
     workouts: list(local?.workouts).filter(w => !have.has(workoutKey(w))).length,
     bodyweight: list(local?.bodyweight).filter(e => e && e.d != null && (!days.has(e.d) || differs(e, days.get(e.d)))).length,
-    customEx: list(local?.customEx).filter(e => e && !ex.has(e.id)).length,
+    customEx: list(local?.customEx).filter(e => e && !ex.has(e.id) && !isPresetExercise(e)).length,
     ...(routines ? { routines } : {}),
     ...(setup ? { setup } : {}),
+    ...(food ? { food } : {}),
   }
 }

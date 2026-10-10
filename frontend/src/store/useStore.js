@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { api, setRemoteAuth } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { registerCustom, healCustomEx } from '../lib/exercises.js'
+import { registerCustom, healCustomEx, isPresetExercise } from '../lib/exercises.js'
 import { DEMO, LOCAL_ONLY } from '../lib/demo.js'
 import { rememberDefaultLang } from '../lib/default-lang.js'
 import { guestAllowed } from '../lib/guest.js'
@@ -213,16 +213,6 @@ export const DEF = {
   balanceTemplate: DEFAULT_TEMPLATE_ID, balanceOverrides: {},
 }
 const clone = o => JSON.parse(JSON.stringify(o))
-const LUX_EXERCISES = [
-  { id: 'lux-running', n: 'running', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio' },
-  { id: 'lux-walking', n: 'walking', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio' },
-  { id: 'lux-hiking', n: 'hiking', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio' },
-  { id: 'lux-stretching', n: 'stretching', custom: true, bp: 'waist', eq: 'body weight', athleteLogMode: 'time' },
-  { id: 'lux-balancing', n: 'balancing', custom: true, bp: 'waist', eq: 'body weight', athleteLogMode: 'time' },
-  { id: 'lux-static-hold', n: 'static hold', custom: true, bp: 'waist', eq: 'body weight', athleteLogMode: 'time' },
-  { id: 'lux-resting', n: 'resting', custom: true, bp: 'cardio', eq: 'body weight', athleteLogMode: 'time' },
-  { id: 'lux-calisthenics', n: 'calisthenics', custom: true, bp: 'upper arms', eq: 'body weight', athleteLogMode: 'reps' },
-]
 
 // First run on a device whose language renders right-to-left starts in that language
 // rather than English; the boot script in index.html mirrors this check for the
@@ -248,7 +238,6 @@ export function freshState() {
   // Exercise animations: Small (v1.3.11), a thumbnail beside the exercise name that a tap opens,
   // so the first set is on screen without scrolling. DEF stays 'full' for a profile saved before.
   s.gifSize = 'mini'
-  s.customEx = clone(LUX_EXERCISES)
   return s
 }
 
@@ -275,10 +264,12 @@ function loadState() {
 }
 
 // Whether a copy holds anything of its own worth keeping over another: workouts, routines,
-// weigh-ins and custom exercises. A custom exercise is all a new guest may have made — with its
+// weigh-ins, custom exercises and food. A custom exercise is all a new guest may have made — with its
 // photo or video, which the server counts as unreferenced until the state that names it lands —
 // so a profile created from such a copy takes it at once, like one holding a workout.
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.customEx || []).length || (st.foodEntries || []).length || Object.keys(st.foodItems || {}).length)
+// Built-in AthleteLog presets are not something the person logged.
+const userExercises = st => (st.customEx || []).filter(ex => ex && !isPresetExercise(ex))
+const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || userExercises(st).length || (st.foodEntries || []).length || Object.keys(st.foodItems || {}).length)
 
 // Decide whether a pulled account state may replace the local saved state. A local active workout
 // is deliberately carried forward: the server stores completed/saved state, while the in-progress
@@ -1125,7 +1116,7 @@ export const useStore = create((set, get) => {
     reached()
     let asked = false
     const askAbout = async extras => {
-      if (!(extras.workouts || extras.bodyweight || extras.customEx || extras.routines || extras.setup) || typeof ask !== 'function') return false
+      if (!(extras.workouts || extras.bodyweight || extras.customEx || extras.routines || extras.setup || extras.food) || typeof ask !== 'function') return false
       asked = true
       return !!(await ask(extras))
     }
@@ -1222,7 +1213,7 @@ export const useStore = create((set, get) => {
   // A copy's workouts, weigh-ins and custom exercises split by the names a sign-in recorded when it
   // began (`pre`, see setUser): `before` holds what was there then, `later` — null when nothing
   // is — what was logged since, with the custom exercises its workouts use, in this copy's unit.
-  const ADOPT_FIELDS = ['workouts', 'bodyweight', 'customEx']
+  const ADOPT_FIELDS = ['workouts', 'bodyweight', 'customEx', 'foodEntries', 'favoriteFoods', 'importBatches']
   const splitByPre = (S, pre) => {
     const before = { ...S }
     const later = { _ts: S._ts, unit: S.unit, ...(S.unitSet ? { unitSet: S.unitSet } : {}) }
@@ -1234,14 +1225,19 @@ export const useStore = create((set, get) => {
       later[f] = xs.filter(x => !had.has(entryKey(f, x)))
       if (later[f].length) any = true
     }
+    const hadItems = new Set(Array.isArray(pre?.foodItems) ? pre.foodItems : [])
+    const items = S.foodItems && typeof S.foodItems === 'object' && !Array.isArray(S.foodItems) ? S.foodItems : {}
+    before.foodItems = Object.fromEntries(Object.entries(items).filter(([k]) => hadItems.has(k)))
+    later.foodItems = Object.fromEntries(Object.entries(items).filter(([k]) => !hadItems.has(k)))
+    if (Object.keys(later.foodItems).length) any = true
     if (!any) return { before, later: null }
-    const used = new Set(later.workouts.flatMap(w => (Array.isArray(w?.entries) ? w.entries : []).map(e => e?.id)))
-    later.customEx = [...later.customEx, ...before.customEx.filter(c => used.has(c.id))]
+    const used = new Set((later.workouts || []).flatMap(w => (Array.isArray(w?.entries) ? w.entries : []).map(e => e?.id)))
+    later.customEx = [...(later.customEx || []), ...(before.customEx || []).filter(c => used.has(c.id))]
     return { before, later }
   }
   const preOf = S => {
     const ids = resetIdsOf(S)
-    return Object.fromEntries(ADOPT_FIELDS.map(f => [f, ids[f] || []]))
+    return Object.fromEntries([...ADOPT_FIELDS, 'foodItems'].map(f => [f, ids[f] || []]))
   }
 
   // The file mirror is the durable copy: WebView storage can be evicted while the files

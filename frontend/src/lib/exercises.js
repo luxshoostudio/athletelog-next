@@ -47,6 +47,22 @@ export const EXIDX = {}
 CATALOGUE.forEach(e => { EXIDX[e.id] = e })
 export const BODYPARTS = [...new Set(CATALOGUE.map(e => e.bp))].sort()
 
+// Built-in AthleteLog modes. They are not user exercises: a fresh profile does not store them,
+// and hasData / sign-in ignore them. `running` is cardio logged as pace and miles.
+export const ATHLETE_PRESETS = [
+  { id: 'lux-running', n: 'running', bp: 'cardio', eq: 'body weight', athleteLogMode: 'running', preset: true },
+  { id: 'lux-walking', n: 'walking', bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio', preset: true },
+  { id: 'lux-hiking', n: 'hiking', bp: 'cardio', eq: 'body weight', athleteLogMode: 'cardio', preset: true },
+  { id: 'lux-stretching', n: 'stretching', bp: 'waist', eq: 'body weight', athleteLogMode: 'time', preset: true },
+  { id: 'lux-balancing', n: 'balancing', bp: 'waist', eq: 'body weight', athleteLogMode: 'time', preset: true },
+  { id: 'lux-static-hold', n: 'static hold', bp: 'waist', eq: 'body weight', athleteLogMode: 'time', preset: true },
+  { id: 'lux-resting', n: 'resting', bp: 'cardio', eq: 'body weight', athleteLogMode: 'time', preset: true },
+  { id: 'lux-calisthenics', n: 'calisthenics', bp: 'upper arms', eq: 'body weight', athleteLogMode: 'reps', preset: true },
+]
+const PRESET_BY_ID = Object.fromEntries(ATHLETE_PRESETS.map(e => [e.id, e]))
+export const presetById = id => PRESET_BY_ID[id] || null
+export const isPresetExercise = ex => !!ex && (ex.preset === true || !!PRESET_BY_ID[ex.id])
+
 // Equipment options present in a given list of exercises, most common first (issue #6).
 // Deriving them from the *already filtered* list keeps the chip row short and means
 // every body-part × equipment combination on screen has results behind it.

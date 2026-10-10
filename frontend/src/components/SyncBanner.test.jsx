@@ -38,7 +38,7 @@ vi.mock('../store/useUI.js', () => {
 })
 vi.mock('react-router-dom', () => ({ useNavigate: () => to => mocks.navs.push(to) }))
 vi.mock('../lib/mobile.js', () => ({ get MOBILE() { return mocks.MOBILE } }))
-vi.mock('../lib/demo.js', () => ({ get DEMO() { return mocks.DEMO } }))
+vi.mock('../lib/demo.js', () => ({ get DEMO() { return mocks.DEMO }, LOCAL_ONLY: false }))
 vi.mock('../lib/api.js', () => ({ webauthnOK: () => mocks.webauthn, passkeyLogin: (...a) => mocks.passkeyLogin(...a) }))
 vi.mock('../sheets.jsx', () => ({ askAddDeviceData: vi.fn() }))
 // What the connect sheet was opened with is the point; its own form is tested elsewhere.

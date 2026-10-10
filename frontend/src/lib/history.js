@@ -1,7 +1,7 @@
 // Pure helpers over the state object S (ported 1:1 from the vanilla app).
 import { todayISO, isoOf, weekKey, weekStartOf, fmtNum } from './format.js'
 import { fmtSpeed } from './speed.js'
-import { EXIDX, isCardio, isBodyweightEq, isAssisted, betterWeight } from './exercises.js'
+import { EXIDX, isCardio, isBodyweightEq, isAssisted, betterWeight, presetById } from './exercises.js'
 import { phaseForSet, modeForSet, modeForEntry, isWarmupRow, isDropSet, isRestPauseSet, normalizeMode, completedVolumeOf, hasCompletedWork, nextDropWeight, splitBurstReps, makeSideSet, isSideSet, syncSideAggregate, WEIGHT_ORIGIN_MANUAL, dropsOf, clustersOf } from './workout-model.js'
 const objectOf = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {}
 // Completed-state-independent work rows whose authoritative mode matches the requested mode.
@@ -28,10 +28,22 @@ import { isPyramid, pyramidLabel, pyramidTargetAt, PYRAMID_MAX } from './pyramid
 //   cardio — duration + speed   sets look like { min, speed }
 // An entry without `mode` behaves exactly as before, so every existing plan, workout and
 // plan file is read unchanged and nothing needs migrating.
+export function athleteLogModeOf(id) {
+  // A known preset's mode wins over a copy saved into customEx. The old seed stored
+  // lux-running as cardio; pace still belongs to the preset, not to that copy.
+  const mode = presetById(id)?.athleteLogMode || EXIDX[id]?.athleteLogMode
+  return mode === 'reps' || mode === 'time' || mode === 'cardio' || mode === 'running' ? mode : null
+}
+
+// Pace and miles, rather than a speed in km/h. Driven by the exercise's athleteLogMode so an
+// imported run uses the same row as the running preset.
+export const usesRunningPace = id => athleteLogModeOf(id) === 'running'
+
 export function modeOf(cfg) {
   const m = cfg && cfg.mode
   if (m === 'reps' || m === 'time' || m === 'cardio') return m
-  const preferred = EXIDX[cfg && cfg.id]?.athleteLogMode
+  const preferred = athleteLogModeOf(cfg && cfg.id)
+  if (preferred === 'running') return 'cardio'
   if (preferred === 'reps' || preferred === 'time' || preferred === 'cardio') return preferred
   return isCardio(cfg && cfg.id) ? 'cardio' : 'reps'
 }

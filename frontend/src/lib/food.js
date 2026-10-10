@@ -55,13 +55,65 @@ export function foodSearch(S, query, limit = 12) {
   }).filter(x => x.score).sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name)).slice(0, limit).map(x => x.item)
 }
 
-export function scaledFood(item, amount) {
+const MACRO_KEYS = ['protein', 'calories', 'fat', 'carbs', 'fiber']
+const roundMacro = (key, value) => +(n(value).toFixed(key === 'calories' ? 1 : 2))
+
+// Catalogue foods and foodItems store nutrition per `qty` (100 g, 1 egg, 1 serving).
+// A logged entry stores `amount` eaten and the totals for that amount. Passing an entry
+// (it has `amount`) back through scaledFood used to treat those totals as per-qty values
+// and multiply them again.
+export function perUnitFood(item = {}) {
   const base = normalizedFood(item)
-  const factor = (n(amount) || base.qty) / base.qty
+  const amount = n(item.amount)
+  const qty = base.qty || 1
+  if (!(amount > 0) || amount === qty) return base
+  const factor = qty / amount
+  const out = { ...base }
+  for (const key of MACRO_KEYS) out[key] = roundMacro(key, base[key] * factor)
+  return out
+}
+
+// `item` is per `qty`. `amount` is how much was eaten. The result is the totals for that amount.
+export function scaledFood(item, amount) {
+  const base = perUnitFood(item)
+  const qty = base.qty || 1
+  const eaten = n(amount) || qty
+  const factor = eaten / qty
+  const out = { ...base, amount: eaten }
+  for (const key of MACRO_KEYS) out[key] = roundMacro(key, base[key] * factor)
+  return out
+}
+
+// Totals the editor is showing, scaled from the portion they belonged to. Amount edits
+// recompute from that base, so typing 200 after 2 does not compound.
+export function macrosForAmount(baseAmount, macros = {}, nextAmount) {
+  const from = n(baseAmount) || 1
+  const to = n(nextAmount)
+  if (!(to > 0)) return { ...macros }
+  const factor = to / from
+  const out = {}
+  for (const key of MACRO_KEYS) {
+    const raw = macros[key]
+    out[key] = raw === '' || raw == null ? (raw ?? '') : roundMacro(key, n(raw) * factor)
+  }
+  return out
+}
+
+// What the food form saved: the numbers on screen are the totals for `amount`, not per-unit
+// values waiting to be scaled a second time.
+export function entryFromDraft(draft = {}) {
+  const now = Date.now()
+  const qty = n(draft.qty) || 1
+  const amount = n(draft.amount) || qty
   return {
-    ...base, amount: n(amount) || base.qty,
-    protein: +(base.protein * factor).toFixed(2), calories: +(base.calories * factor).toFixed(1),
-    fat: +(base.fat * factor).toFixed(2), carbs: +(base.carbs * factor).toFixed(2), fiber: +(base.fiber * factor).toFixed(2),
+    name: String(draft.name || '').trim(),
+    protein: n(draft.protein), calories: n(draft.calories), fat: n(draft.fat), carbs: n(draft.carbs), fiber: n(draft.fiber),
+    unit: draft.unit || 'serving', qty, amount,
+    id: draft.id || `food-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    date: draft.date || foodDay(), time: draft.time || foodTime(), createdAt: draft.createdAt || now,
+    source: draft.source || 'manual',
+    ...(draft.barcode ? { barcode: String(draft.barcode) } : {}),
+    ...(draft.components ? { components: draft.components } : {}),
   }
 }
 
@@ -88,9 +140,13 @@ export function frequentFoods(S = {}, limit = 8, now = Date.now()) {
     const key = clean(entry?.name)
     if (!key) continue
     const age = Math.max(0, now - new Date(`${entry.date || foodDay()}T12:00:00`).getTime()) / DAY
-    const cur = score.get(key) || { item: normalizedFood(entry), count: 0, score: 0, last: '' }
+    const cur = score.get(key) || { item: perUnitFood(entry), count: 0, score: 0, last: '', lastAmount: 0 }
     cur.count++; cur.score += Math.pow(0.5, age / 21)
-    if ((entry.date || '') >= cur.last) { cur.last = entry.date || ''; cur.item = normalizedFood(entry) }
+    if ((entry.date || '') >= cur.last) {
+      cur.last = entry.date || ''
+      cur.lastAmount = n(entry.amount) || n(entry.qty) || 1
+      cur.item = { ...perUnitFood(entry), lastAmount: cur.lastAmount }
+    }
     score.set(key, cur)
   }
   return [...score.values()].sort((a, b) => b.score - a.score || b.count - a.count).slice(0, limit).map(x => x.item)
@@ -110,9 +166,7 @@ export function learnedBreakfast(S = {}) {
     if (entry.date >= cur.date) { cur.date = entry.date; cur.item = normalizedFood(entry) }
     groups.set(key, cur)
   }
-  let items = [...groups.entries()].filter(([, x]) => x.days.size >= threshold).sort((a, b) => b[1].days.size - a[1].days.size).slice(0, 6).map(([, x]) => x.item)
-  if (!items.some(x => clean(x.name) === 'chia seeds')) items.push(normalizedFood(FOOD_BANK['chia seeds'], 'chia seeds'))
-  return items.slice(0, 6)
+  return [...groups.entries()].filter(([, x]) => x.days.size >= threshold).sort((a, b) => b[1].days.size - a[1].days.size).slice(0, 6).map(([, x]) => x.item)
 }
 
 export function breakfastEntry(S, opts = {}) {

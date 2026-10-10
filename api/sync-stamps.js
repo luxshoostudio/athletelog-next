@@ -44,13 +44,16 @@ const clone = v => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
 
 const workoutKey = w => (w?.id != null ? w.id : `${w?.d}|${w?.start}`);
 const workoutTime = w => Number(w?._ts) || Number(w?.end) || Number(w?.start) || 0;
+const foodKey = x => x?.id;
 export const DEL_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: e => e?.d,
   gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  foodEntries: foodKey, favoriteFoods: x => x,
 };
 const DEL_TIME = {
   workouts: workoutTime, routines: x => Number(x?._ts) || 0, customEx: x => Number(x?._ts) || 0,
   bodyweight: e => Number(e?.t) || 0, gymCards: x => Number(x?._ts) || 0, equipProfiles: x => Number(x?._ts) || 0,
+  foodEntries: e => Number(e?._ts) || Number(e?.createdAt) || 0,
 };
 export const DELETED_MAX = 5000;
 const capStamps = m => {
@@ -64,10 +67,11 @@ const OWN_MERGE = new Set([
   '_ts', '_rev', '_wid', '_wids', '_unstamped', '_prior', 'active', 'unit', 'unitSet', 'resetAt', 'resetIds', 'deleted', 'edited', 'undone', 'routineOrder',
   'workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'bodyweight', 'favEx',
   'exWeights', 'balanceOverrides', 'loadKind', 'plates',
+  'foodEntries', 'foodItems', 'favoriteFoods', 'importBatches',
 ]);
 const PER_KEY = new Set(['week', 'dayPlan', 'exNotes', 'barWeights']);
 const ENTRY_META = new Set(['id', '_ts', '_f', '_u']);
-const ENTRY_LISTS = ['routines', 'customEx', 'equipProfiles', 'gymCards', 'workouts'];
+const ENTRY_LISTS = ['routines', 'customEx', 'equipProfiles', 'gymCards', 'workouts', 'foodEntries'];
 
 // Whether removal record `v` replaces `cur`: the later stamp, and on a tie the add-back.
 const laterDel = (v, cur) => {

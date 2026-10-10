@@ -107,6 +107,35 @@ describe('adoptProfile — sign-in takes the server profile', () => {
   // QA, v1.3.9: a guest whose only data was a custom exercise (with its photo) created a profile;
   // the files went up, but the state stayed empty on the server for the next poll to find while
   // Settings said "All synced" — and the server counted the uploaded files as unreferenced.
+  it('asks about guest food and adds it beside the profile\'s meals', async () => {
+    const guestFood = { ...clone(DEF), _ts: 900, foodEntries: [{ id: 'yogurt', name: 'yogurt', date: '2026-10-01', protein: 12, calories: 140, source: 'manual' }] }
+    signedIn(clone(guestFood))
+    const srv = { ...clone(server), foodEntries: [{ id: 'oats', name: 'oats', date: '2026-10-02', protein: 5, calories: 150, source: 'livy' }] }
+    api.mockResolvedValueOnce({ state: clone(srv), rev: 4 })
+    api.mockResolvedValueOnce({ state: clone(srv), rev: 4 })
+    api.mockResolvedValueOnce({ ok: true, rev: 5 })
+    const ask = vi.fn(async () => true)
+    await useStore.getState().adoptProfile(ask)
+    expect(ask).toHaveBeenCalledWith(expect.objectContaining({ food: 1 }))
+    const entries = useStore.getState().S.foodEntries
+    expect(entries.map(e => e.id).sort()).toEqual(['oats', 'yogurt'])
+    expect(entries.find(e => e.id === 'oats').source).toBe('livy')
+    expect(puts()[0].state.foodEntries.map(e => e.id).sort()).toEqual(['oats', 'yogurt'])
+  })
+
+  it('moves a copy holding only food into a profile that has no state yet', async () => {
+    const onlyFood = { ...clone(DEF), _ts: 900, foodEntries: [{ id: 'yogurt', name: 'yogurt', date: '2026-10-01', protein: 12, calories: 140 }] }
+    expect(hasData(onlyFood)).toBe(true)
+    signedIn(clone(onlyFood))
+    api.mockResolvedValueOnce({ state: null, rev: 0 })
+    api.mockResolvedValueOnce({ ok: true, rev: 1 })
+    const ask = vi.fn()
+    await useStore.getState().adoptProfile(ask)
+    expect(ask).not.toHaveBeenCalled()
+    expect(puts()).toHaveLength(1)
+    expect(puts()[0].state.foodEntries.map(e => e.id)).toEqual(['yogurt'])
+  })
+
   it('moves a copy holding only custom exercises into a profile that has no state yet', async () => {
     const onlyCustom = { ...clone(DEF), _ts: 900, customEx: [{ id: 'c1', n: 'sandbag carry', bp: 'back', custom: true, media: { kind: 'image', hash: 'a'.repeat(64), mime: 'image/webp', size: 3, width: 8, height: 6, at: 1 } }] }
     expect(hasData(onlyCustom)).toBe(true)   // what the register sheets check before pushing
