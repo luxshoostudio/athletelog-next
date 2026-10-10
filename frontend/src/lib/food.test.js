@@ -61,6 +61,31 @@ describe('food log', () => {
     expect(frequentFoods(S, 2).map(x => x.name)).toEqual(['Scanned yogurt', 'Manual soup'])
   })
 
+  it('ranks the last 30 days by count and adds a banana as one banana', () => {
+    const now = new Date(2026, 9, 10, 15, 0, 0).getTime()
+    const day = offset => {
+      const d = new Date(2026, 9, 10)
+      d.setDate(d.getDate() - offset)
+      const p = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+    }
+    const foods = frequentFoods({ foodEntries: [
+      { name: 'Soup', calories: 100, date: day(40) },
+      { name: 'Yogurt', calories: 80, amount: 150, qty: 150, unit: 'g', date: day(2), time: '08:00' },
+      { name: 'Yogurt', calories: 100, amount: 200, qty: 200, unit: 'g', date: day(1), time: '08:00' },
+      { name: 'Banana', calories: 105, protein: 1.3, amount: 1, qty: 1, unit: 'banana', date: day(1), time: '09:00' },
+    ] }, 16, now)
+    expect(foods.map(f => f.name)).toEqual(['Yogurt', 'Banana'])
+    expect(foods[0].lastAmount).toBe(200)
+    expect(makeFoodEntry(foods[1], { amount: foods[1].lastAmount }).calories).toBe(105)
+  })
+
+  it('returns at most 16 foods', () => {
+    const date = new Date().toISOString().slice(0, 10)
+    const foodEntries = Array.from({ length: 20 }, (_, i) => ({ name: `Food ${i}`, calories: 10, date }))
+    expect(frequentFoods({ foodEntries })).toHaveLength(16)
+  })
+
   it('learns breakfast only from foods she actually logged', () => {
     const entries = []
     for (let i = 0; i < 5; i++) {

@@ -184,22 +184,34 @@ export function totalsForDay(entries = [], day = foodDay()) {
   }, { calories: 0, protein: 0, fiber: 0, fat: 0, carbs: 0 })
 }
 
-export function frequentFoods(S = {}, limit = 8, now = Date.now()) {
+const QUICK_DAYS = 30
+
+/** Most-logged foods in the last 30 days, ranked by how often they were logged. `lastAmount`
+ *  is the serving on the newest entry, so a chip can add that serving in one tap. */
+export function frequentFoods(S = {}, limit = 16, now = Date.now()) {
   const score = new Map()
   for (const entry of S.foodEntries || []) {
     const key = clean(entry?.name)
     if (!key) continue
-    const age = Math.max(0, now - new Date(`${entry.date || foodDay()}T12:00:00`).getTime()) / DAY
-    const cur = score.get(key) || { item: perUnitFood(entry), count: 0, score: 0, last: '', lastAmount: 0 }
-    cur.count++; cur.score += Math.pow(0.5, age / 21)
-    if ((entry.date || '') >= cur.last) {
-      cur.last = entry.date || ''
-      cur.lastAmount = n(entry.amount) || n(entry.qty) || 1
-      cur.item = { ...perUnitFood(entry), lastAmount: cur.lastAmount }
+    const when = new Date(`${entry.date || foodDay(new Date(now))}T12:00:00`).getTime()
+    const ageDays = (now - when) / DAY
+    if (ageDays > QUICK_DAYS || ageDays < -1) continue
+    const lastAmount = n(entry.amount) || n(entry.qty) || 1
+    const cur = score.get(key) || { item: null, count: 0, last: '', lastTime: '' }
+    cur.count++
+    const date = entry.date || ''
+    const time = String(entry.time || '')
+    if (!cur.item || date > cur.last || (date === cur.last && time >= cur.lastTime)) {
+      cur.last = date
+      cur.lastTime = time
+      cur.item = { ...perUnitFood(entry), lastAmount }
     }
     score.set(key, cur)
   }
-  return [...score.values()].sort((a, b) => b.score - a.score || b.count - a.count).slice(0, limit).map(x => x.item)
+  return [...score.values()]
+    .sort((a, b) => b.count - a.count || a.item.name.localeCompare(b.item.name))
+    .slice(0, Math.max(0, limit))
+    .map(x => x.item)
 }
 
 export function learnedBreakfast(S = {}) {

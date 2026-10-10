@@ -4,6 +4,9 @@
    itself lives in localStorage. `CACHE` carries the build hash (vite.config.js rewrites it), so
    every deploy is a new worker with its own cache and the previous build's files are dropped on
    activate; the media cache (`MEDIA`) is kept across builds. */
+/* App icons linked from index.html (180, 192, 512, and the maskable 512) are part of this
+   shell cache. The name below is stamped with a hash of index.html at build time, so a new
+   icon set is a new cache and the phone drops the previous icons on activate. */
 const CACHE = 'opengym-rt-__BUILD__'
 // Where the page leaves this browser's push device id (lib/push.js shareDeviceId) for the
 // pushsubscriptionchange handler below, which has no localStorage to read it from. Not a build
