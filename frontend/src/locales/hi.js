@@ -1950,4 +1950,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'लाइट मोड में ग्रे रंग गहरे दिखते हैं, ताकि बटन बंद जैसे न लगें।',
   'custom color picker': 'अपना रंग कस्टम रंग चुनने वाला',
   'Signed in from another tab. Your workout came along, keep going here.': 'दूसरे टैब से साइन इन हुआ। आपका वर्कआउट साथ आ गया, यहीं जारी रखें।',
+  '1 entry added by Livy': 'Livy ने 1 प्रविष्टि जोड़ी',
+  '{0} entries added by Livy': 'Livy ने {0} प्रविष्टियाँ जोड़ीं',
 }

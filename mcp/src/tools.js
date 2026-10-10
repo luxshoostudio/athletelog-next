@@ -18,6 +18,7 @@ import {
 import { loadOfWorkouts, rankOf, levelsOf } from '../../frontend/src/lib/muscles.js'
 import { policyFor } from '../../frontend/src/lib/progression.js'
 import { buildSessionEntries, startsFromLast } from '../../frontend/src/lib/session-start.js'
+import { listFoodLogs, addFoodEntry, addWorkoutEntry } from './livy.js'
 
 /* ---------- helpers ---------- */
 
@@ -249,18 +250,26 @@ export const listWorkouts = {
   schema: {
     from: isoDate().optional().describe('Inclusive start date YYYY-MM-DD. Defaults to no lower bound (list most recent).'),
     to: isoDate().optional().describe('Inclusive end date YYYY-MM-DD. Defaults to today.'),
-    limit: z.number().int().min(1).max(200).optional().describe('Max items to return. Defaults to 25.')
+    limit: z.number().int().min(1).max(200).optional().describe('Max items to return. Defaults to 25.'),
+    days: z.number().int().min(1).max(366).optional().describe('If `from` is omitted, only sessions in this many days ending at `to` (or today), including that day.')
   },
-  handler: ({ from, to, limit }) => {
+  handler: ({ from, to, limit, days }) => {
     const S = getState()
     if (!S) return noState()
     const lim = Math.min(Math.max(limit || 25, 1), 200)
     // `to` is documented as defaulting to today, and had no default at all. A row dated in the
     // future — another device with a wrong clock — was listed first as the most recent session.
     const hi = to || todayIso()
+    // `days` is the "last N days" window. An explicit `from` still wins.
+    let lo = from || null
+    if (!lo && days) {
+      const end = new Date(hi + 'T12:00:00')
+      end.setDate(end.getDate() - (days - 1))
+      lo = localIso(end)
+    }
     const all = (S.workouts || []).slice().sort((a, b) => (b.d || '').localeCompare(a.d || ''))
     const matching = all.filter(w => {
-      if (from && w.d < from) return false
+      if (lo && w.d < lo) return false
       if (w.d > hi) return false
       return true
     })
@@ -657,7 +666,8 @@ export const previewSession = {
 /* ---------- registration list ---------- */
 
 export const TOOLS = [
-  listRoutines, getRoutine, previewSession, getWeekPlan, listWorkouts, getWorkout, getBodyweight, estimate1rm, muscleBalance
+  listRoutines, getRoutine, previewSession, getWeekPlan, listWorkouts, getWorkout, getBodyweight, estimate1rm, muscleBalance,
+  listFoodLogs, addFoodEntry, addWorkoutEntry,
 ]
 
 function noState() {

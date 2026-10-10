@@ -1412,6 +1412,12 @@ paths:
                   rev:
                     type: integer
                     description: Server revision of the stored document; 0 when there is none.
+                  inbox:
+                    type: array
+                    description: >-
+                      Pending Livy inbox entries. Omitted when there are none, so a response with
+                      nothing synced is still `{"state": null, "rev": 0}`. The app appends any id
+                      it does not already have; it does not replace the profile with this list.
         '401': { $ref: '#/components/responses/Unauthorized' }
     put:
       tags: [data]
@@ -1541,7 +1547,9 @@ paths:
       description: |
         The `rev` that `GET /api/data` would return, without the document. Signed-in clients poll
         this while open and on every return to the foreground and fetch the document only when
-        the number changed.
+        the number changed. `livy`, when present, is how many entries are waiting in the Livy
+        inbox; it is omitted when that inbox is empty. It is not a new revision — the app reads
+        `GET /api/livy/inbox` and appends those entries itself.
       responses:
         '200':
           description: The current revision (0 when the profile has no state yet).
@@ -1552,6 +1560,83 @@ paths:
                 properties:
                   rev: { type: integer }
                   wid: { type: string, description: 'The write id (`_wid`) of the stored document; absent before its first write.' }
+                  livy: { type: integer, description: 'Pending Livy inbox entries. Omitted when there are none.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/livy/inbox:
+    get:
+      tags: [data]
+      operationId: getLivyInbox
+      summary: List entries waiting for the app to copy in
+      description: |
+        Food and workout entries an agent added for this account, not yet acknowledged.
+        Each item is `{ id, kind, entry, at }`. `entry.source` is always `livy`.
+        The same session cookie as `GET /api/data`.
+      responses:
+        '200':
+          description: Pending items, or an empty list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { type: object } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [data]
+      operationId: postLivyInbox
+      summary: Append food or workout entries for Livy
+      description: |
+        Append-only. One entry (`kind` plus the fields below) or `{ "items": [ ... ] }`
+        (at most 20). An `id` already in the inbox is skipped, not applied twice.
+        Existing profile entries are not modified. `source` is forced to `livy`.
+
+        Food fields: `id`, `name`, `amount`, `unit`, `calories`, `protein`, `fat`, `carbs`,
+        `fiber`, `date` (`YYYY-MM-DD`), `time` (`HH:MM`), `barcode`. Macros are the totals
+        for `amount`. Workout fields: `id`, `date`, `name`, `exercises` (`exercise_id`,
+        `sets` of `weight`/`reps` or `w`/`r`). The MCP server writes the same file without
+        this route; see `mcp/README.md`.
+      responses:
+        '200':
+          description: What was queued, and ids that were already there.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  added: { type: array, items: { type: object } }
+                  skipped: { type: array, items: { type: object } }
+        '400':
+          description: The body was not a food or workout entry, or every item in the batch was rejected.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/livy/inbox/ack:
+    post:
+      tags: [data]
+      operationId: ackLivyInbox
+      summary: Drop inbox entries the app has already copied in
+      description: |
+        Body `{ "ids": ["..."] }`. Only those ids are removed. Unknown ids are ignored.
+        The app sends this after appending the entries to its own profile.
+      responses:
+        '200':
+          description: The ids that were actually in the inbox.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  removed: { type: array, items: { type: string } }
+        '400':
+          description: Body must be an object with an ids array.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/media/{hash}:

@@ -23,6 +23,7 @@ import TabBar from './components/TabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
+import LivyNotice from './components/LivyNotice.jsx'
 import SyncBanner from './components/SyncBanner.jsx'
 import RestTimer from './components/RestTimer.jsx'
 import TimerFlash from './components/TimerFlash.jsx'
@@ -235,6 +236,7 @@ function Shell() {
       {!noTabs && <TabBar onStart={startFlow} />}
       <RestTimer />
       <Modals />
+      <LivyNotice />
       <Toast />
       <TimerFlash />
     </>

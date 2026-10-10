@@ -1950,4 +1950,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': '浅色模式下灰色会调暗一些，免得按钮看起来像被停用了。',
   'custom color picker': '自定义颜色 自己的颜色 取色器 调色板',
   'Signed in from another tab. Your workout came along, keep going here.': '已在另一个标签页登录。你的训练也一起带过去了，在这里继续吧。',
+  '1 entry added by Livy': 'Livy 添加了 1 条记录',
+  '{0} entries added by Livy': 'Livy 添加了 {0} 条记录',
 }

@@ -1950,4 +1950,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Szarości są ciemniejsze w trybie jasnym, żeby przyciski nie wyglądały na wyłączone.',
   'custom color picker': 'własny kolor niestandardowy próbnik wybór koloru',
   'Signed in from another tab. Your workout came along, keep going here.': 'Zalogowano w innej karcie. Twój trening przeszedł razem z kontem, kontynuuj tutaj.',
+  '1 entry added by Livy': '1 wpis dodany przez Livy',
+  '{0} entries added by Livy': { one: '{0} wpis dodany przez Livy', few: '{0} wpisy dodane przez Livy', many: '{0} wpisów dodanych przez Livy' },
 }

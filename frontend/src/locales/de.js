@@ -1970,4 +1970,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Grautöne werden im hellen Modus dunkler, damit Buttons nicht ausgeschaltet wirken.',
   'custom color picker': 'eigene Farbe benutzerdefiniert Farbwähler Farbauswahl',
   'Signed in from another tab. Your workout came along, keep going here.': 'In einem anderen Tab angemeldet. Dein Training ist mitgekommen, mach hier weiter.',
+  '1 entry added by Livy': '1 Eintrag von Livy hinzugefügt',
+  '{0} entries added by Livy': '{0} Einträge von Livy hinzugefügt',
 }

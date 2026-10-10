@@ -1947,4 +1947,6 @@ export default {
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Сірі відтінки у світлій темі темніші, щоб кнопки не здавалися вимкненими.',
   'custom color picker': 'свій колір власний палітра вибір кольору',
   'Signed in from another tab. Your workout came along, keep going here.': 'Вхід виконано в іншій вкладці. Тренування збережено, продовжуй тут.',
+  '1 entry added by Livy': '1 запис додано Livy',
+  '{0} entries added by Livy': { one: '{0} запис додано Livy', few: '{0} записи додано Livy', many: '{0} записів додано Livy' },
 }

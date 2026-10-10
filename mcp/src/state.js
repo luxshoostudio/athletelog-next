@@ -143,7 +143,10 @@ export function getUser() {
   return { id: u.id, name: u.name, created: u.created || null }
 }
 
-export const dataDir = () => DATA_DIR
+// Tests point this at a temp directory. Production always reads OPENGYM_DATA / ./data.
+let _dataDirOverride = null
+export const dataDir = () => _dataDirOverride || DATA_DIR
+export function _setDataDirForTests(dir) { _dataDirOverride = dir || null }
 
 // Test-only: work against a passed-in state, not the disk.
 export function _seedStateForTests(state) {

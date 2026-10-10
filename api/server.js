@@ -34,6 +34,7 @@ import { createMediaStore, mediaLimits, mediaConfig, MediaError, HASH_RE } from 
 import { effectiveRoutineId } from './queue.js';
 import { stampPut } from './sync-stamps.js';
 import { atomicWrite as durableWrite } from './durable.js';
+import { listInbox, countInbox, appendInbox, ackInbox, inputsFromBody } from './livy-inbox.js';
 import { nudgeFor, nudgeWindowOpen, toneOf } from './nudge.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -2101,7 +2102,8 @@ const routes = {
     const state = readStateStrict(user.id);
     if (state === UNREADABLE) { console.error('state file unreadable for', user.id); return json(res, 503, { error: 'state unreadable' }); }
     notePull(user);
-    json(res, 200, { state: forClient(state), rev: state?._rev || 0 });
+    const inbox = listInbox(DATA, user.id);
+    json(res, 200, { state: forClient(state), rev: state?._rev || 0, ...(inbox.length ? { inbox } : {}) });
   },
   // Just the revision: the client asks this every half minute while it is open and on every
   // return to the foreground, and fetches the document only when the number moved — a signed-in
@@ -2113,7 +2115,47 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
     const doc = readStateCached(user.id);
-    json(res, 200, { rev: doc?._rev || 0, ...(doc?._wid ? { wid: doc._wid } : {}) });
+    const livy = countInbox(DATA, user.id);
+    // `livy` is omitted when the inbox is empty so a client from before it still sees the body
+    // it always parsed. A positive count is not a new profile revision: the app reads the inbox
+    // on its own and appends, which is what moves `rev`.
+    json(res, 200, { rev: doc?._rev || 0, ...(doc?._wid ? { wid: doc._wid } : {}), ...(livy ? { livy } : {}) });
+  },
+
+  // Livy's inbox. Append-only, and a different file from the profile, so a coach adding a meal
+  // cannot overwrite a workout this device is pushing. The app copies new ids in and acks them.
+  'GET /api/livy/inbox': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    json(res, 200, { items: listInbox(DATA, user.id) });
+  },
+  'POST /api/livy/inbox': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const inputs = inputsFromBody(body);
+    if (!inputs) return json(res, 400, { error: 'kind or items required' });
+    const result = appendInbox(DATA, user.id, inputs);
+    if (!result.ok) return json(res, 400, { error: result.error || 'invalid item', skipped: result.skipped });
+    // A batch that added nothing and was not merely a retry of ids already queued is a bad request.
+    if (!result.added.length && result.skipped.some(s => s.reason !== 'duplicate')) {
+      return json(res, 400, { error: result.skipped.find(s => s.reason !== 'duplicate')?.reason || 'invalid item', skipped: result.skipped });
+    }
+    json(res, 200, {
+      ok: true,
+      added: result.added.map(i => ({ id: i.id, kind: i.kind, source: 'livy' })),
+      skipped: result.skipped,
+    });
+  },
+  'POST /api/livy/inbox/ack': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const ids = Array.isArray(body.ids) ? body.ids.filter(x => typeof x === 'string').slice(0, 200) : null;
+    if (!ids) return json(res, 400, { error: 'ids required' });
+    const result = ackInbox(DATA, user.id, ids);
+    if (!result.ok) return json(res, 503, { error: result.error || 'inbox unreadable' });
+    json(res, 200, { ok: true, removed: result.removed });
   },
 
   'PUT /api/data': async (req, res) => {
