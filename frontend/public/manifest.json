@@ -1,6 +1,6 @@
 {
-  "name": "AthleteLog Next",
-  "short_name": "AthleteLog",
+  "name": "Lux Log",
+  "short_name": "Lux Log",
   "description": "Local-first training and nutrition tracker",
   "start_url": "./",
   "scope": "./",

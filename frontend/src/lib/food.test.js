@@ -1,5 +1,41 @@
 import { describe, expect, it } from 'vitest'
-import { breakfastEntry, entryFromDraft, foodSearch, frequentFoods, learnedBreakfast, lookupBarcode, macrosForAmount, makeFoodEntry, perUnitFood, scaledFood, totalsForDay } from './food.js'
+import { FOOD_TARGETS, breakfastEntry, entryFromDraft, foodSearch, frequentFoods, goalSuffix, learnedBreakfast, lookupBarcode, macroIsLimit, macroOverLimit, macrosForAmount, makeFoodEntry, nutritionGoals, nutritionTargetsFromForm, perUnitFood, scaledFood, totalsForDay } from './food.js'
+
+describe('daily nutrition goals', () => {
+  it('defaults protein to 125 g and fiber to 25 g, and leaves fat and carbs unset', () => {
+    expect(FOOD_TARGETS).toEqual({ calories: 1300, protein: 125, fiber: 25 })
+    expect(nutritionGoals()).toEqual({ calories: 1300, protein: 125, fiber: 25 })
+    expect(nutritionGoals({}).fat).toBeUndefined()
+    expect(nutritionGoals({}).carbs).toBeUndefined()
+  })
+
+  it('keeps a saved goal and still lets fat and carbs stay unset', () => {
+    expect(nutritionGoals({ protein: 180, fiber: '' })).toMatchObject({ protein: 180, fiber: 25, calories: 1300 })
+    expect(nutritionGoals({ fat: 70, carbs: 0 })).toMatchObject({ fat: 70 })
+    expect(nutritionGoals({ fat: 70, carbs: 0 }).carbs).toBeUndefined()
+    expect(nutritionGoals({ fat: '', carbs: null }).fat).toBeUndefined()
+  })
+
+  it('shows fat and carbs without treating them as limits', () => {
+    const goals = nutritionGoals({ fat: 20, carbs: 40, protein: 125 })
+    expect(macroIsLimit('fat')).toBe(false)
+    expect(macroIsLimit('carbs')).toBe(false)
+    expect(macroIsLimit('protein')).toBe(true)
+    expect(macroOverLimit('fat', 80, goals)).toBe(false)
+    expect(macroOverLimit('carbs', 200, goals)).toBe(false)
+    expect(macroOverLimit('protein', 200, goals)).toBe(true)
+    expect(goalSuffix('fat', goals, 'g')).toBe('g')
+    expect(goalSuffix('carbs', goals, 'g')).toBe('g')
+    expect(goalSuffix('protein', goals, 'g')).toBe('/ 125 g')
+  })
+
+  it('drops a cleared fat or carbs field so the saved goals can leave them unset', () => {
+    expect(nutritionTargetsFromForm({ calories: '1300', protein: '125', fiber: '25', fat: '', carbs: '  ' }))
+      .toEqual({ calories: 1300, protein: 125, fiber: 25 })
+    expect(nutritionTargetsFromForm({ calories: '1500', protein: '160', fiber: '30', fat: '60', carbs: '180' }))
+      .toEqual({ calories: 1500, protein: 160, fiber: 30, fat: 60, carbs: 180 })
+  })
+})
 
 describe('food log', () => {
   it('searches fuzzily and resolves aliases', () => {

@@ -4,23 +4,49 @@ import { useStore } from '../store/useStore.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import {
-  breakfastEntry, entryFromDraft, foodDay, foodSearch, foodTime, frequentFoods,
-  learnedBreakfast, lookupBarcode, macrosForAmount, perUnitFood, scaledFood, totalsForDay,
+  breakfastEntry, entryFromDraft, foodDay, foodSearch, foodTime, frequentFoods, goalNumber, goalSuffix,
+  learnedBreakfast, lookupBarcode, macroIsLimit, macrosForAmount, nutritionGoals,
+  nutritionTargetsFromForm, perUnitFood, scaledFood, totalsForDay,
 } from '../lib/food.js'
 import { athleteLogImport, mergeAthleteLogImport } from '../lib/import-athletelog.js'
 
 const round = value => Math.round((Number(value) || 0) * 10) / 10
 const newDraft = (date = foodDay()) => ({ name: '', amount: 1, unit: 'serving', protein: '', calories: '', fiber: '', fat: '', carbs: '', date, time: foodTime() })
 
-function Macro({ label, value, target, unit }) {
-  const pct = Math.min(100, target > 0 ? value / target * 100 : 0)
-  return <div className="food-macro">
-    <div className="row between"><span className="lbl2">{label}</span><span><b>{round(value)}</b> <span className="dim">/ {target} {unit}</span></span></div>
-    <div className="food-progress"><i style={{ width: `${pct}%` }} /></div>
+function Macro({ label, value, goal, unit, tone }) {
+  const key = tone === 'cal' ? 'calories' : tone
+  const limit = macroIsLimit(key) ? goalNumber(goal) : null
+  const pct = limit ? Math.min(100, (Number(value) || 0) / limit * 100) : 0
+  return <div className={`food-macro ${tone}`}>
+    <div className="row between"><span className="lbl2">{label}</span><span><b>{round(value)}</b> <span className="dim">{goalSuffix(key, { [key]: limit }, unit)}</span></span></div>
+    {limit ? <div className="food-progress"><i style={{ width: `${pct}%` }} /></div> : null}
   </div>
 }
 
 const MACRO_FIELDS = ['calories', 'protein', 'fiber', 'fat', 'carbs']
+
+function DailyGoals({ targets, onSave }) {
+  const goals = nutritionGoals(targets)
+  const [form, setForm] = useState({
+    calories: goals.calories,
+    protein: goals.protein,
+    fiber: goals.fiber,
+    fat: goalNumber(targets?.fat) ?? '',
+    carbs: goalNumber(targets?.carbs) ?? '',
+  })
+  const set = key => e => setForm(x => ({ ...x, [key]: e.target.value }))
+  return <div className="card">
+    <h2>Daily goals</h2>
+    <div className="food-form-grid">
+      <label>Calories<input type="number" inputMode="decimal" min="0" value={form.calories} onChange={set('calories')} /></label>
+      <label>Protein (g)<input type="number" inputMode="decimal" min="0" value={form.protein} onChange={set('protein')} /></label>
+      <label>Fiber (g)<input type="number" inputMode="decimal" min="0" value={form.fiber} onChange={set('fiber')} /></label>
+      <label>Fat (g)<input type="number" inputMode="decimal" min="0" placeholder="No limit" value={form.fat} onChange={set('fat')} /></label>
+      <label>Carbs (g)<input type="number" inputMode="decimal" min="0" placeholder="No limit" value={form.carbs} onChange={set('carbs')} /></label>
+    </div>
+    <Button size="sm" variant="primary" onClick={() => onSave(nutritionTargetsFromForm(form))}>Save goals</Button>
+  </div>
+}
 
 function EntryEditor({ entry, onSave, onClose }) {
   // Macros on screen are the totals for the amount. Amount edits scale from the portion those
@@ -52,6 +78,7 @@ function EntryEditor({ entry, onSave, onClose }) {
       <label>Calories<input type="number" inputMode="decimal" value={draft.calories ?? ''} onChange={e => setMacro('calories', e.target.value)} /></label>
       <label>Protein (g)<input type="number" inputMode="decimal" value={draft.protein ?? ''} onChange={e => setMacro('protein', e.target.value)} /></label>
       <label>Fiber (g)<input type="number" inputMode="decimal" value={draft.fiber ?? ''} onChange={e => setMacro('fiber', e.target.value)} /></label>
+      <label>Fat (g)<input type="number" inputMode="decimal" value={draft.fat ?? ''} onChange={e => setMacro('fat', e.target.value)} /></label>
       <label>Carbs (g)<input type="number" inputMode="decimal" value={draft.carbs ?? ''} onChange={e => setMacro('carbs', e.target.value)} /></label>
       <label>Date<input type="date" {...field('date')} /></label>
       <label>Time<input type="time" {...field('time')} /></label>
@@ -73,7 +100,7 @@ export default function Food() {
   const [busy, setBusy] = useState(false)
   const fileRef = useRef(null)
   const importRef = useRef(null)
-  const targets = { calories: 1300, protein: 140, fiber: 30, ...(S.nutritionTargets || {}) }
+  const targets = nutritionGoals(S.nutritionTargets)
   const totals = totalsForDay(S.foodEntries, day)
   const entries = (S.foodEntries || []).filter(x => x.date === day).sort((a, b) => String(b.time).localeCompare(String(a.time)))
   const results = useMemo(() => query.trim() ? foodSearch(S, query) : [], [S, query])
@@ -132,10 +159,13 @@ export default function Food() {
     <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={importAthleteLog} />
     <div className="card food-summary">
       <input className="food-date" type="date" value={day} onChange={e => setDay(e.target.value)} />
-      <Macro label="Calories" value={totals.calories} target={targets.calories} unit="kcal" />
-      <Macro label="Protein" value={totals.protein} target={targets.protein} unit="g" />
-      <Macro label="Fiber" value={totals.fiber} target={targets.fiber} unit="g" />
+      <Macro tone="cal" label="Calories" value={totals.calories} goal={targets.calories} unit="kcal" />
+      <Macro tone="protein" label="Protein" value={totals.protein} goal={targets.protein} unit="g" />
+      <Macro tone="fiber" label="Fiber" value={totals.fiber} goal={targets.fiber} unit="g" />
+      <Macro tone="fat" label="Fat" value={totals.fat} goal={targets.fat} unit="g" />
+      <Macro tone="carbs" label="Carbs" value={totals.carbs} goal={targets.carbs} unit="g" />
     </div>
+    <DailyGoals key={JSON.stringify(S.nutritionTargets || {})} targets={S.nutritionTargets} onSave={next => update(state => { state.nutritionTargets = next })} />
 
     <div className="card">
       <div className="food-search-row">
