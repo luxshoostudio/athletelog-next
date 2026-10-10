@@ -28,7 +28,12 @@
 .food-date { justify-self:start; width:auto; font:inherit; font-weight:600; }
 .food-macro { display:grid; gap:7px; }
 .food-progress { height:7px; border-radius:999px; overflow:hidden; background:var(--surface-3); }
-.food-progress i { display:block; height:100%; border-radius:inherit; background:var(--acc); }
+.food-progress i { display:block; height:100%; border-radius:inherit; background:var(--protein); }
+.food-macro.cal .food-progress i { background:var(--orange); }
+.food-macro.fiber .food-progress i { background:var(--purple); }
+.food-macro.carbs .food-progress i { background:var(--green); }
+.food-macro.fat .food-progress i { background:var(--fat); }
+.food-macro.protein b { color:var(--protein); }
 .food-search-row { display:grid; grid-template-columns:auto minmax(0,1fr) 38px 38px; gap:8px; align-items:center; }
 .food-search-row > svg { color:var(--label-3); }
 .food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
@@ -49,7 +54,7 @@
 .food-stats-card { display:grid; gap:16px; }
 .food-stats-bars { height:110px; display:grid; grid-template-columns:repeat(7,1fr); gap:8px; align-items:end; }
 .food-stats-bars>div { height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; }
-.food-stats-bars i { width:min(22px,70%); min-height:2px; border-radius:7px; background:var(--acc); }
+.food-stats-bars i { width:min(22px,70%); min-height:2px; border-radius:7px; background:var(--protein); }
 .food-stats-bars span { font-size:.68rem; color:var(--label-3); }
 @media(max-width:430px){.home-food-totals b{font-size:1.2rem}.food-entry-main{grid-template-columns:40px minmax(0,1fr)}.food-entry-main>span:last-child{grid-column:2;white-space:normal}}
 
@@ -85,6 +90,15 @@
   --acc-soft: color-mix(in srgb, var(--acc) 16%, transparent);
   --acc-line: color-mix(in srgb, var(--acc) 38%, transparent);
 
+  /* Protein and progress stay pink; primary actions stay blue. Dark uses the lighter
+     system pink and blue so both still read on a black page. Pressed blue keeps white text. */
+  --protein: var(--pink);
+  --fat: #64d2ff;
+  --btn: var(--blue);
+  --btn-pressed: #0062cc;
+  --btn-ink: #ffffff;
+  --card-shadow: none;
+
   /* geometry */
   --r-sm:8px; --r:12px; --r-lg:16px; --r-xl:22px; --r-card:14px;
   --pad:16px;
@@ -113,9 +127,9 @@
   --surface-2: #ececef;
   --surface-3: #e3e3e8;
 
-  --label:     #000000;
-  --label-2:   rgba(60,60,67,.60);
-  --label-3:   rgba(60,60,67,.30);
+  --label:     #1c1c1e;
+  --label-2:   #6e6e73;
+  --label-3:   #aeaeb2;
   --label-4:   rgba(60,60,67,.16);
 
   --sep:       rgba(60,60,67,.29);
@@ -124,6 +138,9 @@
   --blue:#007aff; --green:#34c759; --red:#ff3b30; --orange:#ff9500;
   --yellow:#ffcc00; --teal:#30b0c7; --indigo:#5856d6; --pink:#ff2d55;
   --purple:#af52de; --mint:#00c7be; --brown:#a2845e; --grey:#8e8e93;
+  --fat:#5ac8fa;
+  --btn-pressed:#0062cc;
+  --card-shadow: 0 .5px 0 rgba(0,0,0,.08);
   --acc-2:#248a3d;
   --on-acc:#ffffff;
 }
@@ -316,6 +333,7 @@ h4.sec{
 .card{
   background:var(--surface);border-radius:var(--r-card);
   padding:16px;margin-bottom:12px;
+  box-shadow:var(--card-shadow);
 }
 .card .big{font-size:30px;font-weight:600;letter-spacing:-.026em;line-height:1.1}
 
@@ -325,7 +343,7 @@ h4.sec{
   font-size:13px;font-weight:400;color:var(--label-2);
   letter-spacing:-.004em;padding:0 4px 7px;display:block;
 }
-.sect-b{background:var(--surface);border-radius:var(--r-card);overflow:hidden}
+.sect-b{background:var(--surface);border-radius:var(--r-card);overflow:hidden;box-shadow:var(--card-shadow)}
 .sect-f{font-size:13px;color:var(--label-2);padding:7px 4px 0;line-height:1.38}
 
 .lrow{
@@ -403,8 +421,8 @@ h4.sec{
 }
 .btn .icn{font-size:19px}
 .btn:active{transform:scale(.975)}
-.btn.primary{background:var(--acc);color:var(--on-acc)}
-.btn.primary:active{background:var(--acc-2)}
+.btn.primary{background:var(--btn);color:var(--btn-ink)}
+.btn.primary:active{background:var(--btn-pressed)}
 .btn.tinted{background:var(--acc-soft);color:var(--acc)}
 .btn.danger{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
 .btn.ghost,.btn.plain{background:none;color:var(--acc);font-weight:400}
@@ -444,7 +462,7 @@ h4.sec{
    fade on the <svg> instead of in the stroke colour flattens the icon first and
    fades it as one shape — and it does that for every icon, not just this one. */
 #tabbar button .icn{font-size:25px;--icon-stroke:1.65;color:var(--label)}
-#tabbar button.on{color:var(--acc)}
+#tabbar button.on{color:var(--protein)}
 #tabbar button.on .icn{--icon-stroke:2;color:inherit;opacity:1}
 /* A connection problem while the banner is switched off (Settings → Show connection status):
    a dot on the Home tab and on the Settings gear. */
@@ -456,20 +474,20 @@ h4.sec{
 .iconbtn .tab-dot{top:5px;right:5px;box-shadow:0 0 0 2px var(--bg)}
 #tabbar button.start{margin-top:-24px}
 #tabbar button.start .cir{
-  width:52px;height:52px;border-radius:50%;background:var(--acc);color:var(--on-acc);
+  width:52px;height:52px;border-radius:50%;background:var(--btn);color:var(--btn-ink);
   display:flex;align-items:center;justify-content:center;position:relative;
-  box-shadow:0 6px 18px -4px color-mix(in srgb,var(--acc) 55%,transparent);
+  box-shadow:0 6px 18px -4px color-mix(in srgb,var(--btn) 55%,transparent);
   transition:transform var(--fast) var(--ease);
 }
 #tabbar button.start:active .cir{transform:scale(.93)}
 #tabbar button.start .cir .icn{font-size:26px;--icon-stroke:2;color:inherit;opacity:1}
-#tabbar button.start span{color:var(--acc);font-weight:600}
+#tabbar button.start span{color:var(--btn);font-weight:600}
 #tabbar button.start .tab-time{font-variant-numeric:tabular-nums}
 /* `.cir` is itself a <span>, so the label rules above and below reach it too and
    outrank the `.cir` block — which is how the running state ended up painting an
    orange play glyph onto an orange disc. Both states restate their own colour.
    The disc is orange in either theme, so its glyph is black, not `--on-acc`. */
-#tabbar button.start .cir{color:var(--on-acc)}
+#tabbar button.start .cir{color:var(--btn-ink)}
 #tabbar button.start.rec .cir{background:var(--orange);color:#000;box-shadow:0 6px 18px -4px color-mix(in srgb,var(--orange) 55%,transparent)}
 #tabbar button.start.rec span{color:var(--orange)}
 #tabbar button.start.rec .cir::after{

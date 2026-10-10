@@ -12,9 +12,9 @@ import { athleteLogImport, mergeAthleteLogImport } from '../lib/import-athletelo
 const round = value => Math.round((Number(value) || 0) * 10) / 10
 const newDraft = (date = foodDay()) => ({ name: '', amount: 1, unit: 'serving', protein: '', calories: '', fiber: '', fat: '', carbs: '', date, time: foodTime() })
 
-function Macro({ label, value, target, unit }) {
+function Macro({ label, value, target, unit, tone = 'protein' }) {
   const pct = Math.min(100, target > 0 ? value / target * 100 : 0)
-  return <div className="food-macro">
+  return <div className={`food-macro ${tone}`}>
     <div className="row between"><span className="lbl2">{label}</span><span><b>{round(value)}</b> <span className="dim">/ {target} {unit}</span></span></div>
     <div className="food-progress"><i style={{ width: `${pct}%` }} /></div>
   </div>
@@ -132,9 +132,9 @@ export default function Food() {
     <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={importAthleteLog} />
     <div className="card food-summary">
       <input className="food-date" type="date" value={day} onChange={e => setDay(e.target.value)} />
-      <Macro label="Calories" value={totals.calories} target={targets.calories} unit="kcal" />
-      <Macro label="Protein" value={totals.protein} target={targets.protein} unit="g" />
-      <Macro label="Fiber" value={totals.fiber} target={targets.fiber} unit="g" />
+      <Macro tone="cal" label="Calories" value={totals.calories} target={targets.calories} unit="kcal" />
+      <Macro tone="protein" label="Protein" value={totals.protein} target={targets.protein} unit="g" />
+      <Macro tone="fiber" label="Fiber" value={totals.fiber} target={targets.fiber} unit="g" />
     </div>
 
     <div className="card">
