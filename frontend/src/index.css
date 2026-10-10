@@ -40,7 +40,7 @@
 .food-macro.cal .food-progress i,.food-macro.fiber .food-progress i { background:var(--btn); }
 .food-macro.carbs .food-progress i { background:var(--green); }
 .food-macro.fat .food-progress i { background:var(--fat); }
-.food-search-row { display:grid; grid-template-columns:auto minmax(0,1fr) 38px 38px; gap:8px; align-items:center; }
+.food-search-row { display:grid; grid-template-columns:auto minmax(0,1fr) 38px 38px 38px; gap:8px; align-items:center; }
 .food-search-row > svg { color:var(--label-3); }
 .food-search-row input,.food-scan input,.food-editor input { width:100%; min-width:0; max-width:100%; border:1px solid var(--line); border-radius:var(--r); padding:11px 12px; background:var(--surface-2); color:var(--label); font:inherit; box-sizing:border-box; }
 /* Single-line search and barcode fields are pills, like the old add row. Higher specificity
@@ -62,6 +62,16 @@
 .food-editor label { min-width:0; display:grid; gap:5px; color:var(--label-2); font-size:.78rem; }
 .food-chips { display:flex; gap:7px; overflow-x:auto; padding:4px 0; scrollbar-width:none; }
 .food-chips button { flex:0 0 auto; border:1px solid var(--line); background:var(--surface-2); color:var(--label); border-radius:999px; padding:8px 12px; font:inherit; font-size:.82rem; }
+/* Two rows, scrolling sideways, so 12–16 frequent foods stay on the card. */
+.food-chips.food-quick { display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, auto); grid-auto-columns:max-content; }
+.food-goals { padding:12px 16px 14px; }
+.food-goals .food-form-grid { margin:0 0 12px; }
+.food-photo-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:40; }
+.food-photo-sheet { position:fixed; left:0; right:0; bottom:0; z-index:41; max-height:78vh; overflow:auto; background:var(--bg-el); color:var(--label); border-radius:var(--r-xl) var(--r-xl) 0 0; padding:16px 16px calc(16px + var(--sab)); box-shadow:0 -12px 40px rgba(0,0,0,.28); }
+.food-photo-sheet h2 { margin:0; }
+.food-photo-item { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.food-photo-item label { display:grid; gap:5px; color:var(--label-2); font-size:.78rem; margin-bottom:8px; }
+.food-photo-item input { width:100%; min-width:0; box-sizing:border-box; border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; background:var(--surface-2); color:var(--label); font:inherit; }
 .food-breakfast-list { margin-top:10px; line-height:1.5; }
 .food-log { display:grid; gap:9px; }
 .food-entry { display:grid; grid-template-columns:minmax(0,1fr) 38px 38px; align-items:center; gap:4px; padding:10px 12px; }

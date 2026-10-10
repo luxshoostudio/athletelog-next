@@ -5,9 +5,10 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import {
   breakfastEntry, entryFromDraft, foodDay, foodSearch, foodTime, frequentFoods, goalNumber, goalSuffix,
-  learnedBreakfast, lookupBarcode, macroIsLimit, macrosForAmount, nutritionGoals,
-  nutritionTargetsFromForm, perUnitFood, scaledFood, totalsForDay,
+  learnedBreakfast, lookupBarcode, macroIsLimit, macrosForAmount, makeFoodEntry, nutritionGoals,
+  perUnitFood, scaledFood, totalsForDay,
 } from '../lib/food.js'
+import { photoConfigured, photoErrorMessage, sendFoodPhoto, withGrams } from '../lib/food-photo.js'
 import { athleteLogImport, mergeAthleteLogImport } from '../lib/import-athletelog.js'
 
 const round = value => Math.round((Number(value) || 0) * 10) / 10
@@ -25,26 +26,24 @@ function Macro({ label, value, goal, unit, tone }) {
 
 const MACRO_FIELDS = ['calories', 'protein', 'fiber', 'fat', 'carbs']
 
-function DailyGoals({ targets, onSave }) {
-  const goals = nutritionGoals(targets)
-  const [form, setForm] = useState({
-    calories: goals.calories,
-    protein: goals.protein,
-    fiber: goals.fiber,
-    fat: goalNumber(targets?.fat) ?? '',
-    carbs: goalNumber(targets?.carbs) ?? '',
-  })
-  const set = key => e => setForm(x => ({ ...x, [key]: e.target.value }))
-  return <div className="card">
-    <h2>Daily goals</h2>
-    <div className="food-form-grid">
-      <label>Calories<input type="number" inputMode="decimal" min="0" value={form.calories} onChange={set('calories')} /></label>
-      <label>Protein (g)<input type="number" inputMode="decimal" min="0" value={form.protein} onChange={set('protein')} /></label>
-      <label>Fiber (g)<input type="number" inputMode="decimal" min="0" value={form.fiber} onChange={set('fiber')} /></label>
-      <label>Fat (g)<input type="number" inputMode="decimal" min="0" placeholder="No limit" value={form.fat} onChange={set('fat')} /></label>
-      <label>Carbs (g)<input type="number" inputMode="decimal" min="0" placeholder="No limit" value={form.carbs} onChange={set('carbs')} /></label>
-    </div>
-    <Button size="sm" variant="primary" onClick={() => onSave(nutritionTargetsFromForm(form))}>Save goals</Button>
+function PhotoReview({ items, onChange, onAdd, onClose }) {
+  const setItem = (i, next) => onChange(items.map((item, n) => n === i ? next : item))
+  return <div className="food-photo-sheet" role="dialog" aria-label="Review photo">
+    <div className="row between"><h2>Review photo</h2><button className="iconbtn" onClick={onClose} aria-label="Close"><Icon name="xmark" /></button></div>
+    <p className="small dim">Check the estimate, then add it to the day.</p>
+    {items.map((item, i) => <div className="food-photo-item" key={i}>
+      <label>Name<input value={item.name} onChange={e => setItem(i, { ...item, name: e.target.value })} /></label>
+      <div className="food-form-grid">
+        <label>Grams<input type="number" inputMode="decimal" min="0" value={item.grams} onChange={e => setItem(i, withGrams(item, e.target.value))} /></label>
+        {[['calories', 'Calories'], ['protein', 'Protein (g)'], ['fiber', 'Fiber (g)'], ['fat', 'Fat (g)'], ['carbs', 'Carbs (g)']].map(([key, label]) =>
+          <label key={key}>{label}<input type="number" inputMode="decimal" min="0" value={item[key]} onChange={e => {
+            const grams = Number(item.grams) || item.baseGrams || 1
+            setItem(i, { ...item, [key]: e.target.value, baseGrams: grams, base: { ...item.base, [key]: Number(e.target.value) || 0 } })
+          }} /></label>)}
+      </div>
+      <button className="food-empty-add" onClick={() => onChange(items.filter((_, n) => n !== i))}>Remove</button>
+    </div>)}
+    <Button variant="primary" onClick={onAdd} disabled={!items.length}>Add to log</Button>
   </div>
 }
 
@@ -98,13 +97,15 @@ export default function Food() {
   const [barcode, setBarcode] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [photo, setPhoto] = useState(null)
   const fileRef = useRef(null)
+  const photoRef = useRef(null)
   const importRef = useRef(null)
   const targets = nutritionGoals(S.nutritionTargets)
   const totals = totalsForDay(S.foodEntries, day)
   const entries = (S.foodEntries || []).filter(x => x.date === day).sort((a, b) => String(b.time).localeCompare(String(a.time)))
   const results = useMemo(() => query.trim() ? foodSearch(S, query) : [], [S, query])
-  const frequent = frequentFoods(S, 8)
+  const frequent = frequentFoods(S)
   const breakfast = learnedBreakfast(S)
 
   const commit = draft => {
@@ -123,6 +124,16 @@ export default function Food() {
     const amount = Number(item.lastAmount) || per.qty || 1
     setEditing({ ...scaledFood(per, amount), qty: per.qty, unit: per.unit, date: day, time: foodTime() })
   }
+  // A chip commits the last serving. Search still opens the editor, so a new food can be adjusted.
+  const addServing = item => {
+    const entry = makeFoodEntry(item, { amount: Number(item.lastAmount) || item.qty || 1, date: day, time: foodTime(), source: 'quick-add' })
+    update(state => {
+      state.foodEntries ||= []
+      state.foodEntries.push(entry)
+      state.foodItems ||= {}
+      state.foodItems[entry.name.toLocaleLowerCase()] = perUnitFood(entry)
+    })
+  }
   const remove = id => update(state => { state.foodEntries = (state.foodEntries || []).filter(x => x.id !== id) })
   const toggleFav = name => update(state => {
     const key = name.toLocaleLowerCase(); state.favoriteFoods ||= []
@@ -132,6 +143,42 @@ export default function Food() {
     const entry = breakfastEntry(S, { date: day, time: foodTime() })
     if (!entry) { setMessage('Add breakfast on at least three mornings so AthleteLog can learn the bundle.'); return }
     update(state => { state.foodEntries ||= []; state.foodEntries.push(entry) })
+  }
+  const openPhoto = async () => {
+    setMessage('')
+    try {
+      if (!(await photoConfigured())) { setMessage('Photo recognition is not set up on this server.'); return }
+      photoRef.current?.click()
+    } catch (e) { setMessage(photoErrorMessage(e)) }
+  }
+  const onPhoto = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setPhoto({ status: 'reading' })
+    try {
+      const items = await sendFoodPhoto(file)
+      if (!items.length) { setPhoto(null); setMessage('No foods identified.'); return }
+      setPhoto({ status: 'review', items })
+    } catch (e) { setPhoto(null); setMessage(photoErrorMessage(e)) }
+  }
+  const addPhoto = () => {
+    const list = (photo?.items || []).filter(item => String(item.name || '').trim())
+    if (!list.length) return
+    update(state => {
+      state.foodEntries ||= []
+      state.foodItems ||= {}
+      for (const item of list) {
+        const grams = Number(item.grams) || 1
+        const saved = entryFromDraft({
+          name: item.name, amount: grams, qty: grams, unit: 'g', date: day, time: foodTime(), source: 'photo',
+          protein: item.protein, calories: item.calories, fat: item.fat, carbs: item.carbs, fiber: item.fiber,
+        })
+        state.foodEntries.push(saved)
+        state.foodItems[saved.name.toLocaleLowerCase()] = perUnitFood(saved)
+      }
+    })
+    setPhoto(null)
   }
   const lookup = async () => {
     setBusy(true); setMessage('')
@@ -165,14 +212,14 @@ export default function Food() {
       <Macro tone="fat" label="Fat" value={totals.fat} goal={targets.fat} unit="g" />
       <Macro tone="carbs" label="Carbs" value={totals.carbs} goal={targets.carbs} unit="g" />
     </div>
-    <DailyGoals key={JSON.stringify(S.nutritionTargets || {})} targets={S.nutritionTargets} onSave={next => update(state => { state.nutritionTargets = next })} />
-
     <div className="card">
       <div className="food-search-row">
         <Icon name="magnifier" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search or add food" />
+        <button className="iconbtn" onClick={openPhoto} aria-label="Photo"><Icon name="camera" /></button>
         <button className="iconbtn" onClick={() => setEditing(newDraft(day))} aria-label="Add custom food"><Icon name="plus" /></button>
         <button className="iconbtn" onClick={() => setScan(x => !x)} aria-label="Scan barcode"><Icon name="qr" /></button>
       </div>
+      <input ref={photoRef} type="file" accept="image/*" capture="environment" hidden onChange={onPhoto} />
       {scan && <div className="food-scan">
         <input inputMode="numeric" value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Enter barcode number" />
         <Button size="sm" variant="primary" onClick={lookup} disabled={busy}>{busy ? 'Looking up…' : 'Look up'}</Button>
@@ -187,7 +234,7 @@ export default function Food() {
 
     <div className="card">
       <div className="row between"><h2>Quick add</h2>{breakfast.length >= 2 && <Button size="sm" variant="tinted" onClick={addBreakfast}>Usual Breakfast</Button>}</div>
-      <div className="food-chips">{frequent.map(item => <button key={item.name} onClick={() => quickAdd(item)}>{item.name}</button>)}</div>
+      <div className="food-chips food-quick">{frequent.map(item => <button key={item.name} onClick={() => addServing(item)}>{item.name}</button>)}</div>
       {breakfast.length >= 2 && <div className="small dim food-breakfast-list">Breakfast: {breakfast.map(x => x.name).join(' · ')}</div>}
       {!frequent.length && <div className="muted small">Foods you log become quick options here.</div>}
     </div>
@@ -204,5 +251,11 @@ export default function Food() {
         <button className="iconbtn" onClick={() => remove(entry.id)} aria-label="Delete"><Icon name="xmark" /></button>
       </div>
     })}{!entries.length && <div className="empty">No food logged for this day.</div>}</div>
+    {photo && <>
+      <div className="food-photo-backdrop" onClick={() => photo.status !== 'reading' && setPhoto(null)} />
+      {photo.status === 'review'
+        ? <PhotoReview items={photo.items} onChange={items => setPhoto({ status: 'review', items })} onAdd={addPhoto} onClose={() => setPhoto(null)} />
+        : <div className="food-photo-sheet" role="dialog" aria-label="Review photo"><h2>Reading photo…</h2></div>}
+    </>}
   </div>
 }

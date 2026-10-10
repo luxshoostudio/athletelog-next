@@ -18,6 +18,7 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { startWarmup } from './coach/warmup.js';
+import { recognizeFoodPhoto, visionConfig } from './vision.js';
 import { dayReminderPush, nudgePush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 import {
@@ -1837,6 +1838,26 @@ const mediaRoutes = {
 /* ---------- routes ---------- */
 const routes = {
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
+
+  // Photo food recognition. The client only learns whether a key is configured, never the key,
+  // the base URL, or the model. Both routes need a session so a public port cannot spend the key.
+  'GET /api/food/photo': async (req, res) => {
+    if (!readSession(req)) return json(res, 401, { error: 'not signed in' });
+    json(res, 200, { configured: visionConfig().configured });
+  },
+  'POST /api/food/photo': async (req, res) => {
+    if (!readSession(req)) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const image = typeof body.image === 'string' ? body.image : '';
+    if (!image) return json(res, 400, { error: 'image required', code: 'image-required' });
+    try {
+      const items = await recognizeFoodPhoto({ image });
+      json(res, 200, { items });
+    } catch (e) {
+      const status = e.status || 502;
+      json(res, status, { error: e.message || 'The vision model did not answer.', code: e.code || 'vision-bad-response' });
+    }
+  },
 
   // Public config the login screen needs before anyone is signed in. `coach` is absent unless
   // the instance has both switched the Coach on and successfully connected a provider — the

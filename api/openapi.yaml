@@ -153,6 +153,11 @@ tags:
       attached to a logged workout. Stored per profile (one quota for both) and named
       by the SHA-256 of its bytes; the state only carries a `MediaRef`. Every route here is a
       404 when the instance runs with `MEDIA_UPLOADS=0`.
+  - name: food
+    description: >-
+      Photo food recognition. The server calls an OpenAI-compatible vision model using
+      `VISION_API_KEY`, `VISION_BASE_URL`, and `VISION_MODEL`. Those values never leave
+      the server. Both routes require a signed-in session.
   - name: coach
     description: >-
       AI Coach: plans, reviews and debriefs. Every route here answers 503 unless the
@@ -183,6 +188,72 @@ paths:
                     type: integer
                     description: Number of registered user accounts.
               example: { ok: true, users: 7 }
+
+  /api/food/photo:
+    get:
+      tags: [food]
+      operationId: getFoodPhoto
+      summary: Whether photo recognition is configured
+      description: |
+        Tells a signed-in client whether `VISION_API_KEY`, `VISION_BASE_URL`, and
+        `VISION_MODEL` are all set. The key, the URL, and the model name are not included.
+      responses:
+        '200':
+          description: Configuration flag only.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured: { type: boolean }
+              example: { configured: false }
+        '401':
+          description: Not signed in.
+    post:
+      tags: [food]
+      operationId: postFoodPhoto
+      summary: Recognize foods in a photo
+      description: |
+        Accepts a JPEG data URL (the client resizes the photo to about 1024px first) and
+        returns estimated foods. A 503 means no vision key is configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image: { type: string, description: JPEG data URL or raw base64. }
+      responses:
+        '200':
+          description: Estimated foods. Macros are for the stated grams.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        grams: { type: number }
+                        unit: { type: string }
+                        protein: { type: number }
+                        calories: { type: number }
+                        fat: { type: number }
+                        carbs: { type: number }
+                        fiber: { type: number }
+        '400':
+          description: No image. `code` is `image-required`.
+        '401':
+          description: Not signed in.
+        '502':
+          description: The model did not answer with a food list. `code` is `vision-bad-response`.
+        '503':
+          description: Photo recognition is not set up. `code` is `vision-unconfigured`.
 
   /api/config:
     get:
