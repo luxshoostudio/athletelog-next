@@ -15,13 +15,13 @@ import { boundPort } from './helpers.mjs';
 
 const API = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-async function startServer(t) {
+async function startServer(t, extraEnv = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gym-cors-'));
   fs.writeFileSync(path.join(dataDir, 'secret'), 'c'.repeat(64), { mode: 0o600 });
   fs.writeFileSync(path.join(dataDir, 'db.json'), JSON.stringify({ users: [], creds: [], subs: [], invites: [] }));
   const child = spawn(process.execPath, ['server.js'], {
     cwd: API, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, PORT: '0', DATA_DIR: dataDir, ORIGIN: 'https://gym.example.com', RP_ID: 'gym.example.com' }
+    env: { ...process.env, PORT: '0', DATA_DIR: dataDir, ORIGIN: 'https://gym.example.com', RP_ID: 'gym.example.com', ...extraEnv }
   });
   let log = '';
   child.stdout.on('data', d => log += d);
@@ -79,6 +79,15 @@ test('a preflight that asks for private-network access gets it', async t => {
   const r = await send(port, 'OPTIONS', '/api/pair/redeem', preflight('https://localhost', { 'Access-Control-Request-Private-Network': 'true' }));
   assert.equal(r.status, 204);
   assert.equal(r.headers['access-control-allow-private-network'], 'true');
+});
+
+test('PNA_ORIGINS allows one named site to reach a private-network server', async t => {
+  const port = await startServer(t, { PNA_ORIGINS: 'https://luxshoostudio.github.io/' });
+  const allowed = await send(port, 'OPTIONS', '/api/pair/redeem', preflight('https://luxshoostudio.github.io', { 'Access-Control-Request-Private-Network': 'true' }));
+  assert.equal(allowed.status, 204);
+  assert.equal(allowed.headers['access-control-allow-private-network'], 'true');
+  const denied = await send(port, 'OPTIONS', '/api/pair/redeem', preflight('https://evil.example', { 'Access-Control-Request-Private-Network': 'true' }));
+  assert.equal(denied.headers['access-control-allow-private-network'], undefined);
 });
 
 test('a website on another origin gets no private-network access', async t => {
