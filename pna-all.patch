@@ -1,0 +1,80 @@
+diff --git a/.env.example b/.env.example
+index 4c193ab..9a7619b 100644
+--- a/.env.example
++++ b/.env.example
+@@ -18,6 +18,13 @@ RP_NAME=openGym
+ #   RP_NAME=openGym
+ #
+ # (Point your proxy at the web container's WEB_PORT. See docs/SELF_HOSTING.md.)
++#
++# A public page on another origin (AthleteLog v1 on GitHub Pages) can call this
++# API with a pairing-code bearer token, but Chrome blocks that call when the
++# server is on a tailnet or LAN address unless the preflight allows it. List
++# the page's origin here, comma-separated, no path. Leave it empty otherwise.
++#
++#   PNA_ORIGINS=https://luxshoostudio.github.io
+ 
+ # ── Admin dashboard & invite-only signup (optional) ────────────────────────
+ # A fresh instance has open signup, and the FIRST profile created on it becomes
+diff --git a/api/server.js b/api/server.js
+index ec2aecb..a2a140b 100644
+--- a/api/server.js
++++ b/api/server.js
+@@ -2602,6 +2602,12 @@ function bodyDeadline(req) {
+ 
+ // The Capacitor WebView origins of the Android and iOS app.
+ const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost']);
++// Extra browser origins allowed to call this server when it sits on a private or
++// tailnet address. Chrome's private-network preflight otherwise blocks a public
++// page (GitHub Pages) from reaching it. Comma-separated, no paths. Empty by default,
++// so a random website still cannot probe a LAN instance through someone's browser.
++const EXTRA_PNA_ORIGINS = new Set((process.env.PNA_ORIGINS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean));
++const privateNetworkAllowed = origin => APP_ORIGINS.has(origin) || EXTRA_PNA_ORIGINS.has(origin);
+ 
+ const server = http.createServer(async (req, res) => {
+   bodyDeadline(req);
+@@ -2617,7 +2623,7 @@ const server = http.createServer(async (req, res) => {
+     // Only the app's own WebView origins get it, so an arbitrary website still can't reach a
+     // LAN-only instance through the visitor's browser.
+     const pna = String(req.headers['access-control-request-private-network'] || '').toLowerCase() === 'true'
+-      && APP_ORIGINS.has(origin);
++      && privateNetworkAllowed(origin);
+     res.writeHead(204, {
+       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+diff --git a/api/test/server-cors.test.js b/api/test/server-cors.test.js
+index a78221f..cfbdb45 100644
+--- a/api/test/server-cors.test.js
++++ b/api/test/server-cors.test.js
+@@ -15,13 +15,13 @@ import { boundPort } from './helpers.mjs';
+ 
+ const API = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+ 
+-async function startServer(t) {
++async function startServer(t, extraEnv = {}) {
+   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gym-cors-'));
+   fs.writeFileSync(path.join(dataDir, 'secret'), 'c'.repeat(64), { mode: 0o600 });
+   fs.writeFileSync(path.join(dataDir, 'db.json'), JSON.stringify({ users: [], creds: [], subs: [], invites: [] }));
+   const child = spawn(process.execPath, ['server.js'], {
+     cwd: API, stdio: ['ignore', 'pipe', 'pipe'],
+-    env: { ...process.env, PORT: '0', DATA_DIR: dataDir, ORIGIN: 'https://gym.example.com', RP_ID: 'gym.example.com' }
++    env: { ...process.env, PORT: '0', DATA_DIR: dataDir, ORIGIN: 'https://gym.example.com', RP_ID: 'gym.example.com', ...extraEnv }
+   });
+   let log = '';
+   child.stdout.on('data', d => log += d);
+@@ -81,6 +81,15 @@ test('a preflight that asks for private-network access gets it', async t => {
+   assert.equal(r.headers['access-control-allow-private-network'], 'true');
+ });
+ 
++test('PNA_ORIGINS allows one named site to reach a private-network server', async t => {
++  const port = await startServer(t, { PNA_ORIGINS: 'https://luxshoostudio.github.io/' });
++  const allowed = await send(port, 'OPTIONS', '/api/pair/redeem', preflight('https://luxshoostudio.github.io', { 'Access-Control-Request-Private-Network': 'true' }));
++  assert.equal(allowed.status, 204);
++  assert.equal(allowed.headers['access-control-allow-private-network'], 'true');
++  const denied = await send(port, 'OPTIONS', '/api/pair/redeem', preflight('https://evil.example', { 'Access-Control-Request-Private-Network': 'true' }));
++  assert.equal(denied.headers['access-control-allow-private-network'], undefined);
++});
++
+ test('a website on another origin gets no private-network access', async t => {
+   const port = await startServer(t);
+   const r = await send(port, 'OPTIONS', '/api/pair/redeem', preflight('https://evil.example', { 'Access-Control-Request-Private-Network': 'true' }));
