@@ -2602,6 +2602,12 @@ function bodyDeadline(req) {
 
 // The Capacitor WebView origins of the Android and iOS app.
 const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost']);
+// Extra browser origins allowed to call this server when it sits on a private or
+// tailnet address. Chrome's private-network preflight otherwise blocks a public
+// page (GitHub Pages) from reaching it. Comma-separated, no paths. Empty by default,
+// so a random website still cannot probe a LAN instance through someone's browser.
+const EXTRA_PNA_ORIGINS = new Set((process.env.PNA_ORIGINS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean));
+const privateNetworkAllowed = origin => APP_ORIGINS.has(origin) || EXTRA_PNA_ORIGINS.has(origin);
 
 const server = http.createServer(async (req, res) => {
   bodyDeadline(req);
@@ -2617,7 +2623,7 @@ const server = http.createServer(async (req, res) => {
     // Only the app's own WebView origins get it, so an arbitrary website still can't reach a
     // LAN-only instance through the visitor's browser.
     const pna = String(req.headers['access-control-request-private-network'] || '').toLowerCase() === 'true'
-      && APP_ORIGINS.has(origin);
+      && privateNetworkAllowed(origin);
     res.writeHead(204, {
       'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
