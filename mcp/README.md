@@ -76,8 +76,8 @@ Read tools, plus two Livy writes (see below):
 | `get_routine` | What does the Push Day routine prescribe? (sets/reps/weight and rest per exercise) |
 | `preview_session` | What will the app actually put on screen when I start this routine — after the progression policy and my history have overridden the plan? |
 | `get_week_plan` | What's planned when: the next seven days with their routines and how each was decided (coach week, a pinned session, an override, the weekday plan), the current coach week when one is running, and the weekday table. |
-| `get_weekly_plan` | The weekday workout plan (routine per day) plus planned meals, with protein for each meal and the daily protein and fiber targets. |
-| `set_weekly_plan` | Change that plan. Workouts update the weekday routines; meals update `mealPlan`. The write is marked updated by Livy and does not remove other routines. |
+| `get_weekly_plan` | The weekday workout plan plus planned meals. Days use the routine already on `week`. Protein and fiber come from `mealPlan`, or from `nutritionTargets` when that field is missing. |
+| `set_weekly_plan` | Change that plan. A workout updates the routine already assigned to the day. Meals update `mealPlan`, and protein and fiber also update `nutritionTargets`. The write is marked updated by Livy. |
 | `list_workouts` | Recent sessions — newest first, with dates, sets done/planned, volume, duration, PRs. Pass `days` for the last N days (ending today, or ending at `to`). |
 | `list_food_logs` | Food entries in a window (default the last 7 days): name, amount, unit, calories, protein, fat, carbs, fiber, date, time, source. Includes Livy inbox rows not copied into the log yet. |
 | `get_workout` | Full set-by-set breakdown of one session, by `workout_id` or by date. On a day with two sessions the date alone returns both ids to pick from rather than guessing at one. |
@@ -99,13 +99,22 @@ re-interpret them.
 
 ## Weekly plan
 
-`get_weekly_plan` and `set_weekly_plan` are the coach's view of the week AthleteLog v1 edits.
-Workouts are ordinary weekday routines: id `al-plan-0` through `al-plan-6` (Sunday is 0, the
-same key as `week`), linked from `week` without removing a routine already on that day.
-`get_week_plan` therefore sees them too. Meals are a profile field the training log did not
-have, `mealPlan`: daily `protein` and `fiber` targets, and per weekday `breakfast`, `lunch`,
-`dinner`, and `snacks` with a name and a rough protein. A coach write sets `updatedBy` to
-`livy`. Send only the days that change.
+`get_weekly_plan` and `set_weekly_plan` are the coach's view of the week. Each day is the
+routine already assigned on `week` (Sunday is 0). Lux's week is `lux-upper`, `lux-slow-run`,
+`lux-lower`, `lux-tempo-run`, `lux-shoulder-arm`, and `lux-long-run`, and those are what the
+tool returns. A day with no routine has a null workout. Run minutes come from the routine
+when it stores them, otherwise from a "30 min" note, the sum of cardio exercise `min` values
+(sets are not a multiplier), or 30 for a slow or tempo run and 60 for a long run.
+
+Daily protein and fiber come from `mealPlan` when those numbers are set, otherwise from
+`nutritionTargets`. Meals stay null until `mealPlan` exists.
+
+`set_weekly_plan` updates the routine already on that day and keeps its id and exercises.
+It creates an `al-plan-<weekday>` routine only when the day has nothing scheduled and the
+workout is not rest. Rest on an empty day adds nothing. Protein and fiber writes also update
+`nutritionTargets` and keep the other fields, such as calories. Meals are `mealPlan`: per
+weekday `breakfast`, `lunch`, `dinner`, and `snacks`, with a name and a rough protein. A
+coach write sets `updatedBy` to `livy`. Send only the days that change.
 
 ## Livy
 
