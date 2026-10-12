@@ -157,11 +157,32 @@ export function _seedStateForTests(state) {
   if (_watcher) { _watcher.close(); _watcher = null }
 }
 
+// Writes the profile the api server reads. A test seed (mtime sentinel) stays in memory.
+export function saveState(next) {
+  if (!next || typeof next !== 'object') {
+    const err = new Error('no profile to write')
+    err.code = 'EINVAL'
+    throw err
+  }
+  if (_loadedMtime === Number.MAX_SAFE_INTEGER) {
+    _state = next
+    return next
+  }
+  init()
+  _state = next
+  const file = stateFile(_uid)
+  const tmp = file + '.tmp-' + process.pid
+  fs.writeFileSync(tmp, JSON.stringify(next), { mode: 0o600 })
+  fs.renameSync(tmp, file)
+  try { _loadedMtime = fs.statSync(file).mtimeMs } catch { _state = undefined }
+  return next
+}
+
 function defaultsShape() {
   return {
     unit: 'kg', restSec: 90, sound: true, lang: 'en',
     theme: 'light', accent: 'forest', body: 'male', targetW: null,
-    bodyweight: [], routines: [], week: {}, dayPlan: {},
+    bodyweight: [], routines: [], week: {}, dayPlan: {}, mealPlan: null,
     exWeights: {}, workouts: [], customEx: [], gifSize: 'full',
     reminder: { on: false, time: '08:00', tz: null }
   }

@@ -19,6 +19,7 @@ import { loadOfWorkouts, rankOf, levelsOf } from '../../frontend/src/lib/muscles
 import { policyFor } from '../../frontend/src/lib/progression.js'
 import { buildSessionEntries, startsFromLast } from '../../frontend/src/lib/session-start.js'
 import { listFoodLogs, addFoodEntry, addWorkoutEntry } from './livy.js'
+import { getWeeklyPlan, setWeeklyPlan } from './weekly-plan.js'
 
 /* ---------- helpers ---------- */
 
@@ -668,6 +669,7 @@ export const previewSession = {
 export const TOOLS = [
   listRoutines, getRoutine, previewSession, getWeekPlan, listWorkouts, getWorkout, getBodyweight, estimate1rm, muscleBalance,
   listFoodLogs, addFoodEntry, addWorkoutEntry,
+  getWeeklyPlan, setWeeklyPlan,
 ]
 
 function noState() {
