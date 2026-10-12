@@ -1,0 +1,30 @@
+name: apply-weekly-plan
+on:
+  push:
+    branches: [cursor/weekly-plan-mcp-b486]
+    paths: [.github/workflows/apply-weekly-plan.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cursor/weekly-plan-mcp-b486
+      - name: Apply the weekly plan change
+        run: |
+          set -euo pipefail
+          if [ -f mcp/src/weekly-plan.js ]; then
+            echo already-applied
+            exit 0
+          fi
+          curl -fsSL "https://raw.githubusercontent.com/luxshoostudio/athletelog/b8ab2950d9e85f4ee595725121b11aebb4baecfd/weekly-plan.patch" -o weekly-plan.patch
+          git apply weekly-plan.patch
+          git config user.name "luxshoostudio"
+          git config user.email "279083974+luxshoostudio@users.noreply.github.com"
+          git add mcp
+          rm -f weekly-plan.patch
+          git commit -m "Let the coach read and write the weekly plan."
+          git push origin HEAD:cursor/weekly-plan-mcp-b486
